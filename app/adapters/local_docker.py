@@ -15,6 +15,7 @@ import uuid
 import docker
 
 from app.adapters.base import DatabaseAdapter
+from app.adapters.registry import register
 from app.config import settings
 from app.models import (
     DatabaseEngine,
@@ -64,6 +65,7 @@ def _docker_status_to_instance_status(raw: str) -> InstanceStatus:
     return _DOCKER_STATUS_MAP.get(raw, InstanceStatus.ERROR)
 
 
+@register("local_docker")
 class LocalDockerAdapter(DatabaseAdapter):
     """Implementa el contrato del adaptador usando contenedores Docker locales."""
 

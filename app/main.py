@@ -13,7 +13,7 @@ from functools import lru_cache
 from fastapi import Depends, FastAPI, HTTPException
 
 from app.adapters.base import DatabaseAdapter
-from app.adapters.local_docker import LocalDockerAdapter
+from app.adapters.registry import get_adapter_class
 from app.config import settings
 from app.models import InstanceCreateRequest, InstanceInfo
 
@@ -22,15 +22,13 @@ app = FastAPI(title=settings.api_title, version=settings.api_version)
 
 @lru_cache
 def get_adapter() -> DatabaseAdapter:
-    """Devuelve el adaptador activo según `settings.provider`.
+    """Instancia el adaptador correspondiente al `provider` configurado.
 
-    Mientras solo haya un proveedor implementado, una rama `if` simple
-    basta. Cuando entren 2-3 adaptadores conviene refactorizar a un
-    registry/factoría (ver fase posterior en CLAUDE.md).
+    No conoce los adaptadores concretos: delega en el registry, que cada
+    adaptador rellena al cargarse vía el decorador `@register(...)`.
     """
-    if settings.provider == "local_docker":
-        return LocalDockerAdapter()
-    raise RuntimeError(f"Proveedor no soportado: {settings.provider!r}")
+    adapter_cls = get_adapter_class(settings.provider)
+    return adapter_cls()
 
 
 @app.post("/instances", response_model=InstanceInfo, status_code=201)
