@@ -74,16 +74,12 @@ def test_delete_twice_is_safe(client: TestClient) -> None:
 
 
 def test_create_rejects_short_password_with_422(client: TestClient) -> None:
-    response = client.post(
-        "/instances", json={"name": "midb", "admin_password": "short"}
-    )
+    response = client.post("/instances", json={"name": "midb", "admin_password": "short"})
     assert response.status_code == 422
 
 
 def test_create_rejects_short_name_with_422(client: TestClient) -> None:
-    response = client.post(
-        "/instances", json={"name": "ab", "admin_password": "supersecret123"}
-    )
+    response = client.post("/instances", json={"name": "ab", "admin_password": "supersecret123"})
     assert response.status_code == 422
 
 

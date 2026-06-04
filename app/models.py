@@ -9,19 +9,19 @@ Ejemplo: el cliente pide `size=SMALL`. El adaptador local lo ignora; el
 adaptador de AWS lo traducirá a `db.t3.micro`; el de GCP a `db-f1-micro`.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class DatabaseEngine(str, Enum):
+class DatabaseEngine(StrEnum):
     """Motores de BBDD soportados por la API."""
 
     POSTGRES = "postgres"
     MYSQL = "mysql"
 
 
-class InstanceSize(str, Enum):
+class InstanceSize(StrEnum):
     """
     Tallas abstractas. Cada adaptador las mapea a su equivalente nativo.
 
@@ -34,7 +34,7 @@ class InstanceSize(str, Enum):
     LARGE = "large"
 
 
-class InstanceStatus(str, Enum):
+class InstanceStatus(StrEnum):
     """Estados normalizados del ciclo de vida de una instancia."""
 
     CREATING = "creating"

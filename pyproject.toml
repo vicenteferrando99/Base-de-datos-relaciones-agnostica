@@ -30,6 +30,21 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "SIM"]
 
+[tool.ruff.lint.flake8-bugbear]
+# fastapi.Depends y compañía son marker objects: se evalúan a un valor estable
+# y son el patrón idiomático de FastAPI como default de parámetros.
+# La regla B008 no entiende esto, así que los excluimos explícitamente.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.Form",
+    "fastapi.File",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
