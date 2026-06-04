@@ -166,9 +166,7 @@ class LocalDockerAdapter(DatabaseAdapter):
         # Si el contenedor está parado, ports puede no traer mapeo de host.
         mappings = (container.ports or {}).get(f"{internal_port}/tcp") or []
         host_port = (
-            int(mappings[0]["HostPort"])
-            if mappings and mappings[0].get("HostPort")
-            else None
+            int(mappings[0]["HostPort"]) if mappings and mappings[0].get("HostPort") else None
         )
 
         return InstanceInfo(

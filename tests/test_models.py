@@ -40,9 +40,7 @@ def test_create_request_accepts_mysql() -> None:
 
 def test_create_request_rejects_unknown_engine() -> None:
     with pytest.raises(ValidationError):
-        InstanceCreateRequest(
-            name="testdb", engine="oracle", admin_password="supersecret123"
-        )
+        InstanceCreateRequest(name="testdb", engine="oracle", admin_password="supersecret123")
 
 
 def test_instance_info_allows_optional_host_and_port() -> None:

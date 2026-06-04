@@ -127,9 +127,7 @@ def test_container_to_info_stopped_without_ports() -> None:
 @pytest.mark.integration
 def test_integration_full_lifecycle(docker_adapter: LocalDockerAdapter) -> None:
     """Flujo completo: create -> get -> list -> delete -> get(404)."""
-    req = InstanceCreateRequest(
-        name="ittest", admin_password="supersecret123"
-    )
+    req = InstanceCreateRequest(name="ittest", admin_password="supersecret123")
 
     created = docker_adapter.create_instance(req)
     assert created.engine == DatabaseEngine.POSTGRES
