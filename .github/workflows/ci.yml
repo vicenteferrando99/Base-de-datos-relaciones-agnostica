@@ -1,0 +1,40 @@
+# Pipeline mínimo de Integración Continua.
+# Verifica que cada push y cada PR pasan lint + tests rápidos.
+# Los tests marcados @pytest.mark.integration NO se ejecutan aquí: requieren
+# Docker en un job dedicado (queda como mejora futura del backlog).
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    name: Lint + tests rápidos
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install
+
+      - name: Sync dependencies (frozen)
+        run: uv sync --frozen
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: Run fast tests
+        run: uv run pytest -m "not integration"

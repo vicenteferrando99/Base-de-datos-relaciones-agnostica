@@ -29,8 +29,7 @@ def register(
     def decorator(cls: type[DatabaseAdapter]) -> type[DatabaseAdapter]:
         if name in _REGISTRY:
             raise RuntimeError(
-                f"Adaptador duplicado: {name!r} ya está registrado como "
-                f"{_REGISTRY[name].__name__}"
+                f"Adaptador duplicado: {name!r} ya está registrado como {_REGISTRY[name].__name__}"
             )
         _REGISTRY[name] = cls
         return cls
@@ -41,10 +40,7 @@ def register(
 def get_adapter_class(name: str) -> type[DatabaseAdapter]:
     """Devuelve la clase adaptadora registrada bajo `name`."""
     if name not in _REGISTRY:
-        raise ValueError(
-            f"Proveedor no soportado: {name!r}. "
-            f"Disponibles: {available_providers()}"
-        )
+        raise ValueError(f"Proveedor no soportado: {name!r}. Disponibles: {available_providers()}")
     return _REGISTRY[name]
 
 
