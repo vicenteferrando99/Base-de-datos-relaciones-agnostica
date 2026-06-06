@@ -6,4 +6,7 @@ Sin estos imports, Python no cargaría los módulos hasta que alguien los
 importase explícitamente y `get_adapter_class("local_docker")` fallaría.
 """
 
-from app.adapters import local_docker  # noqa: F401  # activa @register(...)
+from app.adapters import (
+    aws_rds,  # noqa: F401  # activa @register(...)
+    local_docker,  # noqa: F401  # activa @register(...)
+)
