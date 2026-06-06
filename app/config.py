@@ -28,5 +28,13 @@ class Settings(BaseSettings):
     # y no en la ruta clásica.
     docker_host: str | None = None
 
+    # --- AWS (solo usado por aws_rds) ---
+    # Las credenciales NO viven aquí; boto3 las lee de ~/.aws/credentials.
+    # Aquí solo región y, opcionalmente, IDs de red para overridear la
+    # Default VPC.
+    aws_region: str = "eu-west-1"
+    aws_db_subnet_group: str | None = None
+    aws_security_group_id: str | None = None
+
 
 settings = Settings()
