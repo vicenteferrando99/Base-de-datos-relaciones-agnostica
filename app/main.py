@@ -9,15 +9,19 @@ del TFM: cambiar de proveedor = cambiar configuración, no código.
 """
 
 from functools import lru_cache
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 
 from app.adapters.base import DatabaseAdapter
-from app.adapters.registry import get_adapter_class
+from app.adapters.registry import available_providers, get_adapter_class
 from app.config import settings
 from app.models import InstanceCreateRequest, InstanceInfo
 
 app = FastAPI(title=settings.api_title, version=settings.api_version)
+
+_UI_HTML_PATH = Path(__file__).parent.parent / "ui" / "index.html"
 
 
 @lru_cache
@@ -78,3 +82,19 @@ def delete_instance(
         adapter.delete_instance(instance_id)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/health", include_in_schema=False)
+def health() -> dict:
+    """Meta-info para la UI: proveedor activo y proveedores disponibles."""
+    return {
+        "provider": settings.provider,
+        "available_providers": available_providers(),
+        "api_version": settings.api_version,
+    }
+
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+def ui() -> str:
+    """Sirve la mini-UI web (Tailwind + Alpine.js)."""
+    return _UI_HTML_PATH.read_text(encoding="utf-8")

@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cloud DB API · Panel</title>
+
+    <!-- Tailwind CSS Play CDN (v3.4.17 fijado) -->
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <!-- Alpine.js (v3.14.1 fijado) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        [x-cloak] { display: none !important; }
+        .fade-in { animation: fadeIn 200ms ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+
+<body class="bg-slate-50 min-h-screen text-slate-800" x-data="dashboard()" x-init="init()">
+
+    <!-- Cabecera -->
+    <header class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-10">
+        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold">DB</div>
+                <div>
+                    <h1 class="text-lg font-semibold">Cloud DB API</h1>
+                    <p class="text-xs text-slate-500">Panel de control</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="text-xs text-slate-500">Proveedor activo</div>
+                <span
+                    class="px-3 py-1 rounded-full text-xs font-medium border"
+                    :class="{
+                        'bg-emerald-50 text-emerald-700 border-emerald-200': health.provider === 'local_docker',
+                        'bg-amber-50 text-amber-700 border-amber-200': health.provider === 'aws_rds',
+                        'bg-slate-100 text-slate-600 border-slate-200': !['local_docker','aws_rds'].includes(health.provider)
+                    }"
+                    x-text="health.provider || '...'"></span>
+                <button
+                    @click="refreshAll()"
+                    class="text-slate-500 hover:text-indigo-600 transition p-2 rounded-lg hover:bg-slate-100"
+                    title="Refrescar">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5" :class="loading ? 'animate-spin' : ''">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-6 py-8 space-y-8">
+
+        <!-- Notificación -->
+        <div x-show="notice.message" x-cloak x-transition
+             class="rounded-lg px-4 py-3 text-sm border flex items-start justify-between gap-3"
+             :class="{
+                'bg-emerald-50 text-emerald-800 border-emerald-200': notice.type === 'success',
+                'bg-red-50 text-red-800 border-red-200': notice.type === 'error'
+             }">
+            <span x-text="notice.message"></span>
+            <button @click="notice.message = ''" class="text-current opacity-60 hover:opacity-100">×</button>
+        </div>
+
+        <!-- Crear instancia -->
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <button @click="createFormOpen = !createFormOpen"
+                    class="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-4 h-4">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                    </div>
+                    <div class="text-left">
+                        <div class="font-medium">Nueva instancia</div>
+                        <div class="text-xs text-slate-500">Aprovisionar una base de datos en el proveedor activo</div>
+                    </div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                     class="w-5 h-5 text-slate-400 transition" :class="createFormOpen ? 'rotate-180' : ''">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+
+            <div x-show="createFormOpen" x-transition x-cloak class="border-t border-slate-200 px-6 py-6">
+                <form @submit.prevent="createInstance()" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                    <div class="md:col-span-2">
+                        <label class="text-xs font-medium text-slate-600">Nombre <span class="text-red-500">*</span></label>
+                        <input type="text" x-model="form.name" required minlength="3" maxlength="63"
+                               placeholder="p. ej. ventas"
+                               class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none">
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-medium text-slate-600">Motor</label>
+                        <select x-model="form.engine"
+                                class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none">
+                            <option value="postgres">PostgreSQL</option>
+                            <option value="mysql">MySQL</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-medium text-slate-600">Versión del motor (opcional)</label>
+                        <input type="text" x-model="form.engine_version" placeholder="default del adaptador"
+                               class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none">
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-medium text-slate-600">Tamaño</label>
+                        <select x-model="form.size"
+                                class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none">
+                            <option value="small">Small</option>
+                            <option value="medium">Medium</option>
+                            <option value="large">Large</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-medium text-slate-600">Usuario admin</label>
+                        <input type="text" x-model="form.admin_username" placeholder="dbadmin"
+                               class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none">
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label class="text-xs font-medium text-slate-600">Contraseña admin <span class="text-red-500">*</span></label>
+                        <input type="password" x-model="form.admin_password" required minlength="8"
+                               placeholder="mínimo 8 caracteres"
+                               class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none">
+                    </div>
+
+                    <div class="md:col-span-2 flex items-center justify-end gap-3 pt-2">
+                        <button type="button" @click="resetForm()"
+                                class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition">
+                            Limpiar
+                        </button>
+                        <button type="submit" :disabled="creating"
+                                class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 rounded-lg transition flex items-center gap-2">
+                            <svg x-show="creating" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 animate-spin">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
+                                <path fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" class="opacity-75"></path>
+                            </svg>
+                            <span x-text="creating ? 'Creando...' : 'Crear instancia'"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- Listado -->
+        <section>
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-base font-semibold">Instancias gestionadas</h2>
+                    <p class="text-xs text-slate-500"
+                       x-text="instances.length === 0 ? 'No hay instancias activas' : instances.length + ' instancia(s)'"></p>
+                </div>
+            </div>
+
+            <!-- Vacío -->
+            <div x-show="!loading && instances.length === 0" x-cloak
+                 class="bg-white border border-dashed border-slate-300 rounded-xl p-12 text-center">
+                <div class="w-12 h-12 mx-auto bg-slate-100 rounded-full flex items-center justify-center mb-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-6 h-6 text-slate-400">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                    </svg>
+                </div>
+                <p class="text-sm text-slate-600">Aún no has creado ninguna instancia.</p>
+                <p class="text-xs text-slate-400 mt-1">Despliega la sección de arriba para empezar.</p>
+            </div>
+
+            <!-- Cargando inicial -->
+            <div x-show="loading && instances.length === 0" x-cloak
+                 class="bg-white border border-slate-200 rounded-xl p-12 text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-6 h-6 animate-spin text-indigo-500 mx-auto mb-2">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
+                    <path fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" class="opacity-75"></path>
+                </svg>
+                <p class="text-sm text-slate-500">Cargando instancias...</p>
+            </div>
+
+            <!-- Grid de tarjetas -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <template x-for="inst in instances" :key="inst.id">
+                    <article class="fade-in bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition overflow-hidden flex flex-col">
+                        <!-- Cabecera card -->
+                        <div class="px-5 py-4 border-b border-slate-100">
+                            <div class="flex items-center justify-between gap-2">
+                                <h3 class="font-semibold text-slate-900 truncate" x-text="inst.name"></h3>
+                                <span class="px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap"
+                                      :class="{
+                                          'bg-emerald-100 text-emerald-700': inst.status === 'available',
+                                          'bg-amber-100 text-amber-700': ['creating','deleting'].includes(inst.status),
+                                          'bg-slate-100 text-slate-600': inst.status === 'stopped',
+                                          'bg-red-100 text-red-700': inst.status === 'error'
+                                      }"
+                                      x-text="inst.status"></span>
+                            </div>
+                            <p class="text-xs text-slate-400 font-mono mt-1" x-text="inst.id"></p>
+                        </div>
+
+                        <!-- Cuerpo card -->
+                        <div class="px-5 py-4 space-y-2 text-sm flex-1">
+                            <div class="flex justify-between">
+                                <span class="text-slate-500">Motor</span>
+                                <span class="font-medium" x-text="inst.engine + ' ' + (inst.engine_version || '')"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-500">Proveedor</span>
+                                <span class="font-medium font-mono text-xs" x-text="inst.provider"></span>
+                            </div>
+                            <div x-show="inst.host" class="flex justify-between gap-2">
+                                <span class="text-slate-500 shrink-0">Host</span>
+                                <span class="font-mono text-xs truncate text-right" :title="inst.host" x-text="inst.host"></span>
+                            </div>
+                            <div x-show="inst.port" class="flex justify-between">
+                                <span class="text-slate-500">Puerto</span>
+                                <span class="font-mono text-xs" x-text="inst.port"></span>
+                            </div>
+                        </div>
+
+                        <!-- Footer card -->
+                        <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-end">
+                            <button @click="confirmDelete(inst)"
+                                    class="text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-md transition flex items-center gap-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-4 h-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a2 2 0 012-2h2a2 2 0 012 2v3" />
+                                </svg>
+                                Borrar
+                            </button>
+                        </div>
+                    </article>
+                </template>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal de confirmación -->
+    <div x-show="deleteTarget" x-cloak x-transition.opacity
+         class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+        <div @click.away="deleteTarget = null"
+             class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 fade-in">
+            <h3 class="text-lg font-semibold mb-2">Confirmar borrado</h3>
+            <p class="text-sm text-slate-600 mb-1">
+                Vas a eliminar la instancia
+                <strong x-text="deleteTarget?.name"></strong>
+                (<code class="text-xs" x-text="deleteTarget?.id"></code>).
+            </p>
+            <p class="text-xs text-slate-500 mb-5">Esta acción es irreversible.</p>
+            <div class="flex justify-end gap-2">
+                <button @click="deleteTarget = null"
+                        class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition">
+                    Cancelar
+                </button>
+                <button @click="doDelete()" :disabled="deleting"
+                        class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-slate-300 rounded-lg transition">
+                    <span x-text="deleting ? 'Borrando...' : 'Borrar'"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function dashboard() {
+            const emptyForm = () => ({
+                name: '',
+                engine: 'postgres',
+                engine_version: '',
+                size: 'small',
+                admin_username: '',
+                admin_password: '',
+            });
+
+            return {
+                health: { provider: '', available_providers: [], api_version: '' },
+                instances: [],
+                loading: false,
+                creating: false,
+                deleting: false,
+                createFormOpen: false,
+                deleteTarget: null,
+                notice: { type: 'success', message: '' },
+                pollHandle: null,
+                form: emptyForm(),
+
+                async init() {
+                    await this.refreshAll();
+                    this.pollHandle = setInterval(() => this.fetchInstances(), 5000);
+                },
+
+                async refreshAll() {
+                    await Promise.all([this.fetchHealth(), this.fetchInstances()]);
+                },
+
+                async fetchHealth() {
+                    try {
+                        const r = await fetch('/health');
+                        if (r.ok) this.health = await r.json();
+                    } catch (e) { /* silent */ }
+                },
+
+                async fetchInstances() {
+                    this.loading = true;
+                    try {
+                        const r = await fetch('/instances');
+                        if (r.ok) this.instances = await r.json();
+                    } catch (e) {
+                        this.showError('Error al cargar instancias: ' + e.message);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                async createInstance() {
+                    this.creating = true;
+                    try {
+                        const payload = { ...this.form };
+                        if (!payload.engine_version) delete payload.engine_version;
+                        if (!payload.admin_username) delete payload.admin_username;
+
+                        const r = await fetch('/instances', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload),
+                        });
+                        if (!r.ok) {
+                            const err = await r.json().catch(() => ({}));
+                            throw new Error(err.detail || ('HTTP ' + r.status));
+                        }
+                        const created = await r.json();
+                        this.showSuccess('Instancia "' + created.name + '" creada (id: ' + created.id + ')');
+                        this.resetForm();
+                        this.createFormOpen = false;
+                        await this.fetchInstances();
+                    } catch (e) {
+                        this.showError('Error al crear: ' + e.message);
+                    } finally {
+                        this.creating = false;
+                    }
+                },
+
+                confirmDelete(inst) {
+                    this.deleteTarget = inst;
+                },
+
+                async doDelete() {
+                    if (!this.deleteTarget) return;
+                    this.deleting = true;
+                    const id = this.deleteTarget.id;
+                    const name = this.deleteTarget.name;
+                    try {
+                        const r = await fetch('/instances/' + id, { method: 'DELETE' });
+                        if (!r.ok && r.status !== 204) throw new Error('HTTP ' + r.status);
+                        this.showSuccess('Instancia "' + name + '" eliminada');
+                        this.deleteTarget = null;
+                        await this.fetchInstances();
+                    } catch (e) {
+                        this.showError('Error al borrar: ' + e.message);
+                    } finally {
+                        this.deleting = false;
+                    }
+                },
+
+                resetForm() {
+                    this.form = emptyForm();
+                },
+
+                showSuccess(msg) {
+                    this.notice = { type: 'success', message: msg };
+                    setTimeout(() => { if (this.notice.message === msg) this.notice.message = ''; }, 5000);
+                },
+
+                showError(msg) {
+                    this.notice = { type: 'error', message: msg };
+                },
+            };
+        }
+    </script>
+</body>
+</html>

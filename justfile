@@ -21,8 +21,13 @@ test-integration:
 test-all:
     uv run pytest
 
-# Lanza la API en modo desarrollo con autoreload
+# Lanza la API en modo desarrollo con autoreload (sirve también la UI en /)
 run:
+    uv run uvicorn app.main:app --reload
+
+# Alias para arrancar la app y abrir directamente la UI en el navegador
+ui:
+    @echo "UI: http://localhost:8000  ·  API docs: http://localhost:8000/docs"
     uv run uvicorn app.main:app --reload
 
 # Linter (sin modificar)
