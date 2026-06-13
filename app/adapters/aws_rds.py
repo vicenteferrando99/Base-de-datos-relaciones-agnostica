@@ -58,12 +58,13 @@ ENGINE_TO_RDS: dict[DatabaseEngine, str] = {
     DatabaseEngine.MYSQL: "mysql",
 }
 
-# Versiones por defecto si el cliente no especifica una. Hay que validar
-# que estén disponibles en RDS antes de un release; AWS las va sacando
-# y retirando con cierta frecuencia.
+# Versiones por defecto si el cliente no especifica una.
+# AWS retira versiones antiguas con cierta frecuencia; conviene revisar
+# periódicamente con `aws rds describe-db-engine-versions --engine <X>`.
+# Validado en eu-west-1 a junio 2026.
 DEFAULT_VERSIONS: dict[DatabaseEngine, str] = {
-    DatabaseEngine.POSTGRES: "16.4",
-    DatabaseEngine.MYSQL: "8.0.39",
+    DatabaseEngine.POSTGRES: "16.14",
+    DatabaseEngine.MYSQL: "8.0.46",
 }
 
 # Tags de ownership (mismo patrón que los labels del adaptador Docker).
@@ -86,8 +87,15 @@ _RDS_STATUS_MAP: dict[str, InstanceStatus] = {
 
 
 def _rds_status_to_instance_status(raw: str) -> InstanceStatus:
-    """Mapea DBInstanceStatus de RDS a InstanceStatus. Desconocido => ERROR."""
-    return _RDS_STATUS_MAP.get(raw, InstanceStatus.ERROR)
+    """Mapea DBInstanceStatus de RDS a InstanceStatus.
+
+    Estados desconocidos => CREATING. RDS tiene muchos estados intermedios
+    durante el aprovisionamiento (`configuring-enhanced-monitoring`,
+    `storage-optimization`, etc.) que no merece la pena enumerar todos.
+    Asumimos conservadoramente "en transición" en vez de ERROR. Solo
+    `failed` se considera ERROR explícitamente vía el mapeo.
+    """
+    return _RDS_STATUS_MAP.get(raw, InstanceStatus.CREATING)
 
 
 @register("aws_rds")

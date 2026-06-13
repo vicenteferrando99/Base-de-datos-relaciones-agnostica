@@ -51,7 +51,10 @@ class InstanceCreateRequest(BaseModel):
     engine: DatabaseEngine = DatabaseEngine.POSTGRES
     engine_version: str | None = None  # ej. "16", "15.3"; None = default del adaptador
     size: InstanceSize = InstanceSize.SMALL
-    admin_username: str = "admin"
+    # Default seguro en TODOS los proveedores. "admin" está reservado en RDS
+    # para Postgres como MasterUsername — el smoke test lo cazó. "dbadmin"
+    # es libre en Postgres, MySQL, RDS, Docker. Si quieres otro, lo pasas.
+    admin_username: str = "dbadmin"
     admin_password: str = Field(..., min_length=8)
 
 

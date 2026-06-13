@@ -16,7 +16,7 @@ def test_create_request_valid_minimal() -> None:
     req = InstanceCreateRequest(name="testdb", admin_password="supersecret123")
     assert req.engine == DatabaseEngine.POSTGRES
     assert req.size == InstanceSize.SMALL
-    assert req.admin_username == "admin"
+    assert req.admin_username == "dbadmin"
 
 
 def test_create_request_rejects_short_password() -> None:

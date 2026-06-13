@@ -57,7 +57,7 @@ def test_create_instance_calls_rds_with_correct_args() -> None:
     db = dbs[0]
     assert db["DBInstanceClass"] == "db.t3.micro"
     assert db["Engine"] == "postgres"
-    assert db["MasterUsername"] == "admin"
+    assert db["MasterUsername"] == "dbadmin"
     assert db["AllocatedStorage"] == 20
 
 
@@ -86,7 +86,7 @@ def test_create_instance_uses_default_version_when_not_provided() -> None:
         InstanceCreateRequest(name="testdb", admin_password="supersecret123")
     )
     # Default Postgres según DEFAULT_VERSIONS del adaptador.
-    assert info.engine_version == "16.4"
+    assert info.engine_version == "16.14"
 
 
 @mock_aws
