@@ -1,0 +1,19 @@
+# Configuración NO secreta de la API (las credenciales van en Secrets que el
+# usuario crea aparte; ver values.yaml). Esto materializa la tesis del TFM en
+# K8s: cambiar de proveedor = cambiar un valor de este ConfigMap.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cloud-db-api.fullname" . }}
+  labels:
+    {{- include "cloud-db-api.labels" . | nindent 4 }}
+data:
+  PROVIDER: {{ .Values.provider | quote }}
+  {{- if .Values.dockerSocket.enabled }}
+  DOCKER_INSTANCE_HOST: {{ .Values.dockerSocket.instanceHost | quote }}
+  {{- end }}
+  AWS_REGION: {{ .Values.credentials.aws.region | quote }}
+  GCP_REGION: {{ .Values.credentials.gcp.region | quote }}
+  {{- with .Values.credentials.gcp.project }}
+  GCP_PROJECT: {{ . | quote }}
+  {{- end }}

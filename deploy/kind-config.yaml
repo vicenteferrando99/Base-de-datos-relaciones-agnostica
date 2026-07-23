@@ -1,0 +1,17 @@
+# Configuración del cluster kind para el TFM.
+#
+# El extraMount pasa el socket del daemon de Docker del HOST al nodo de kind
+# (que es a su vez un contenedor). Después, el chart de Helm lo monta del
+# nodo al pod de la API. Cadena completa:
+#   host -> (extraMount) -> nodo kind -> (hostPath del chart) -> pod
+# Sin esto, el adaptador `local_docker` no funcionaría dentro del cluster.
+#
+# Crear el cluster:  kind create cluster --name cloud-db-api --config deploy/kind-config.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: cloud-db-api
+nodes:
+  - role: control-plane
+    extraMounts:
+      - hostPath: /var/run/docker.sock
+        containerPath: /var/run/docker.sock

@@ -44,13 +44,40 @@ class InstanceStatus(StrEnum):
     ERROR = "error"
 
 
+class InstanceRegion(StrEnum):
+    """
+    Regiones abstractas. Cada adaptador las mapea a su región nativa.
+
+    Mismo principio que `InstanceSize`: NO exponemos `eu-west-1` ni
+    `europe-west1` (eso ataría al proveedor). El cliente pide `EUROPE` y cada
+    adaptador traduce. El adaptador local (Docker) las ignora: no hay regiones
+    en una máquina local.
+    """
+
+    EUROPE = "europe"
+    US = "us"
+
+
 class InstanceCreateRequest(BaseModel):
     """Payload que el cliente envía a POST /instances."""
 
-    name: str = Field(..., min_length=3, max_length=63)
+    # Patrón: minúsculas, dígitos y guiones, empezando por letra y sin guion
+    # final. Es la intersección de las reglas de nombres de los tres
+    # proveedores (identificadores RDS, nombres de instancia Cloud SQL y
+    # nombres de contenedor Docker). Validarlo aquí evita errores nativos
+    # crípticos después.
+    name: str = Field(
+        ...,
+        min_length=3,
+        max_length=63,
+        pattern=r"^[a-z]([a-z0-9-]*[a-z0-9])?$",
+    )
     engine: DatabaseEngine = DatabaseEngine.POSTGRES
     engine_version: str | None = None  # ej. "16", "15.3"; None = default del adaptador
     size: InstanceSize = InstanceSize.SMALL
+    region: InstanceRegion = InstanceRegion.EUROPE
+    # Almacenamiento en GB. None => default del adaptador. Docker lo ignora.
+    storage_gb: int | None = Field(default=None, ge=10)
     # Default seguro en TODOS los proveedores. "admin" está reservado en RDS
     # para Postgres como MasterUsername — el smoke test lo cazó. "dbadmin"
     # es libre en Postgres, MySQL, RDS, Docker. Si quieres otro, lo pasas.
@@ -69,3 +96,12 @@ class InstanceInfo(BaseModel):
     host: str | None = None
     port: int | None = None
     provider: str  # ej. "local_docker", "aws_rds", "gcp_cloudsql"
+    # Nombre de la BD inicial creada junto a la instancia (B7). Puede diferir
+    # de `name` por las reglas de cada proveedor (RDS no admite guiones en
+    # DBName, GCP fuerza minúsculas). Lo expone la API para que el cliente
+    # (p. ej. la pestaña Consultas de la UI) no tenga que adivinarlo.
+    database: str | None = None
+    # Mensaje informativo opcional sobre el aprovisionamiento. Lo usa el
+    # adaptador GCP para comunicar el progreso/errores del setup diferido
+    # (creación de BD y usuario tras quedar la instancia disponible).
+    note: str | None = None

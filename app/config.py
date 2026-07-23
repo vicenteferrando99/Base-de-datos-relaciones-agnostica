@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     # y no en la ruta clásica.
     docker_host: str | None = None
 
+    # Host que se anuncia en los datos de conexión de las instancias Docker.
+    # "localhost" vale cuando la API corre en la misma máquina que el daemon.
+    # Al desplegar la API en Kubernetes (kind) el daemon sigue siendo el del
+    # host pero "localhost" dentro del pod es el propio pod: aquí se pone la
+    # IP por la que el pod alcanza al host (p. ej. la puerta de enlace de la
+    # red de kind, 172.18.0.1). Lo fija el chart de Helm.
+    docker_instance_host: str = "localhost"
+
     # --- AWS (solo usado por aws_rds) ---
     # Las credenciales NO viven aquí; boto3 las lee de ~/.aws/credentials.
     # Aquí solo región y, opcionalmente, IDs de red para overridear la
@@ -35,6 +43,14 @@ class Settings(BaseSettings):
     aws_region: str = "eu-west-1"
     aws_db_subnet_group: str | None = None
     aws_security_group_id: str | None = None
+
+    # --- GCP (solo usado por gcp_cloudsql) ---
+    # Las credenciales NO viven aquí; la librería de Google las lee de las
+    # Application Default Credentials (`gcloud auth application-default login`,
+    # fichero ~/.config/gcloud/application_default_credentials.json).
+    # `gcp_project` es obligatorio si PROVIDER=gcp_cloudsql.
+    gcp_project: str | None = None
+    gcp_region: str = "europe-west1"
 
 
 settings = Settings()

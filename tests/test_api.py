@@ -88,3 +88,22 @@ def test_create_rejects_missing_required_fields_with_422(
 ) -> None:
     response = client.post("/instances", json={"name": "midb"})  # falta password
     assert response.status_code == 422
+
+
+# ------------------------- cambio de proveedor (A1) -------------------------
+
+
+def test_set_provider_valid_changes_active(client: TestClient) -> None:
+    initial = client.get("/health").json()["provider"]
+    try:
+        response = client.put("/provider", json={"provider": "aws_rds"})
+        assert response.status_code == 200
+        assert response.json()["provider"] == "aws_rds"
+        assert client.get("/health").json()["provider"] == "aws_rds"
+    finally:
+        client.put("/provider", json={"provider": initial})
+
+
+def test_set_provider_invalid_returns_400(client: TestClient) -> None:
+    response = client.put("/provider", json={"provider": "noexiste"})
+    assert response.status_code == 400

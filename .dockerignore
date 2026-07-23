@@ -1,0 +1,20 @@
+# Solo entran en la imagen: pyproject.toml, uv.lock, app/ y ui/.
+.git
+.github
+.venv
+.env
+.env.example
+.pytest_cache
+.ruff_cache
+__pycache__
+**/__pycache__
+tests/
+docs/
+scripts/
+deploy/
+.claude/
+CLAUDE.md
+README.md
+justfile
+Dockerfile
+.dockerignore

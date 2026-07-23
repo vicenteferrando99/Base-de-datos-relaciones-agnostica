@@ -1,0 +1,56 @@
+# Valores por defecto del chart. Pensados para el despliegue local con kind.
+
+# NO subir de 1: la API tiene estado de proceso (proveedor activo cambiado en
+# caliente, caché de adaptadores, aprovisionamiento diferido de GCP). Con
+# varias réplicas cada pod tendría su propio estado. Limitación consciente,
+# documentada en la memoria.
+replicaCount: 1
+
+image:
+  repository: cloud-db-api
+  tag: "0.1.0"
+  # IfNotPresent porque la imagen se carga a mano en el nodo con
+  # `kind load docker-image` (no hay registry).
+  pullPolicy: IfNotPresent
+
+# Proveedor activo al arrancar (variable PROVIDER de la API).
+provider: local_docker
+
+service:
+  type: ClusterIP
+  port: 8000
+
+# Acceso al daemon de Docker del host, necesario SOLO para el adaptador
+# local_docker. groupId debe ser el gid del grupo `docker` del HOST
+# (getent group docker | cut -d: -f3); el pod se une a ese grupo vía
+# supplementalGroups para poder escribir en el socket sin ser root.
+dockerSocket:
+  enabled: true
+  hostPath: /var/run/docker.sock
+  groupId: 984
+  # Host por el que el POD alcanza las instancias que crea en el daemon del
+  # host ("localhost" no vale dentro del cluster). 172.18.0.1 es la puerta de
+  # enlace de la red `kind` (el host visto desde el nodo).
+  instanceHost: 172.18.0.1
+
+# Credenciales cloud como Secrets ya existentes en el cluster (la API y el
+# chart nunca las contienen). Vacío = proveedor no configurado.
+credentials:
+  aws:
+    # kubectl create secret generic aws-credentials --from-file=credentials=$HOME/.aws/credentials
+    secretName: ""
+    region: eu-west-1
+  gcp:
+    # kubectl create secret generic gcp-credentials \
+    #   --from-file=credentials.json=$HOME/.config/gcloud/application_default_credentials.json
+    secretName: ""
+    project: ""
+    region: europe-west1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

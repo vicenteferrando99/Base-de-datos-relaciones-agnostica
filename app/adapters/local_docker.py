@@ -117,9 +117,10 @@ class LocalDockerAdapter(DatabaseAdapter):
             # segundos en estar listo. Más adelante implementaremos un
             # healthcheck real y devolveremos CREATING -> AVAILABLE.
             status=InstanceStatus.AVAILABLE,
-            host="localhost",
+            host=settings.docker_instance_host,
             port=int(host_port),
             provider="local_docker",
+            database=request.name,  # POSTGRES_DB / MYSQL_DATABASE
         )
 
     # ---------- READ ----------
@@ -169,15 +170,17 @@ class LocalDockerAdapter(DatabaseAdapter):
             int(mappings[0]["HostPort"]) if mappings and mappings[0].get("HostPort") else None
         )
 
+        name = labels.get("instance-name", container.name)
         return InstanceInfo(
             id=labels.get("instance-id", ""),
-            name=labels.get("instance-name", container.name),
+            name=name,
             engine=engine,
             engine_version=labels.get("engine-version", ""),
             status=_docker_status_to_instance_status(container.status),
-            host="localhost" if host_port else None,
+            host=settings.docker_instance_host if host_port else None,
             port=host_port,
             provider="local_docker",
+            database=name,  # la BD inicial se crea con el nombre de la instancia
         )
 
     @staticmethod

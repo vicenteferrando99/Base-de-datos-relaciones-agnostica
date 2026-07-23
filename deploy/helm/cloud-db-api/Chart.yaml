@@ -1,0 +1,10 @@
+apiVersion: v2
+name: cloud-db-api
+description: >-
+  API REST agnóstica de proveedor para bases de datos relacionales
+  (TFM, Universidad de Málaga). Kubernetes actúa solo como plataforma
+  de despliegue de la API; las instancias de BBDD viven en el proveedor
+  activo (Docker/AWS/GCP), no en el cluster.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

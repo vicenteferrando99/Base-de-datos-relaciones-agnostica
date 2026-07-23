@@ -34,6 +34,7 @@ class FakeAdapter(DatabaseAdapter):
             host="fake-host",
             port=5432,
             provider=self.PROVIDER_NAME,
+            database=request.name,
         )
         self._instances[instance_id] = info
         return info
