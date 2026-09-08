@@ -22,10 +22,16 @@ class Settings(BaseSettings):
     api_version: str = "0.1.0"
 
     # URL del socket del daemon de Docker. Solo lo usa `local_docker`.
-    # Si es None, el SDK aplica su lógica por defecto (variable de entorno
-    # DOCKER_HOST o `/var/run/docker.sock`). Hay que fijarlo cuando se usa
-    # Docker Desktop en Linux: su socket vive en `~/.docker/desktop/docker.sock`
-    # y no en la ruta clásica.
+    # Si es None, el SDK aplica su lógica por defecto, que acierta en casi
+    # todos los entornos: `/var/run/docker.sock` en Linux con Docker Engine,
+    # el named pipe `npipe:////./pipe/docker_engine` en Windows con Docker
+    # Desktop, y `~/.docker/run/docker.sock` en macOS.
+    #
+    # El único caso que exige fijarlo a mano es Docker Desktop EN LINUX, cuyo
+    # socket vive en `~/.docker/desktop/docker.sock` y no en la ruta clásica.
+    #
+    # Cuidado al migrar de sistema: un valor `unix://...` heredado de un .env
+    # de Linux rompe el adaptador en Windows. En Windows, dejarlo sin definir.
     docker_host: str | None = None
 
     # Host que se anuncia en los datos de conexión de las instancias Docker.

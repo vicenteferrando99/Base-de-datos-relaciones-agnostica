@@ -31,3 +31,6 @@ credentials.json
 # Logs
 *.log
 CLAUDE.md
+
+# Notas de trabajo con IDs de proyecto / facturación
+CLAUDE_2.md

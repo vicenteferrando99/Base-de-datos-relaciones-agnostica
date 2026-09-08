@@ -56,15 +56,19 @@ Funcionalidad:
   (`aws configure` / `gcloud auth application-default login`); ver
   [`docs/SETUP.md`](docs/SETUP.md)
 
+Desarrollado en Ubuntu y verificado también en Windows 11 (la fase 4,
+Kubernetes, es la excepción: ver [`docs/SETUP.md`](docs/SETUP.md) §8).
+
 ## Puesta en marcha
 
 ```bash
 # 1. Instalar dependencias
 just install                            # o: uv sync
 
-# 2. Configuración local
-cp .env.example .env
+# 2. Configuración local  (`uv sync` NO crea el .env: es un paso manual)
+cp .env.example .env                    # Windows: copy .env.example .env
 # Edita .env: PROVIDER, y DOCKER_HOST solo si usas Docker Desktop en Linux.
+# En Windows deja DOCKER_HOST sin definir. Ver docs/SETUP.md §3.
 
 # 3. Lanzar la API en modo desarrollo
 just run                                # o: uv run uvicorn app.main:app --reload
