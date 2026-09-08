@@ -45,6 +45,7 @@ import google.auth
 import google_auth_httplib2
 import httplib2
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 from app import network
 from app.adapters.base import DatabaseAdapter
@@ -258,19 +259,73 @@ class GcpCloudSqlAdapter(DatabaseAdapter):
         )
 
     # ---------- aprovisionamiento diferido (B6 + B7) ----------
+    def _operations_in_progress(self, db_name: str) -> bool:
+        """True si la instancia tiene alguna operación sin terminar.
+
+        `state` y las *operaciones* son dos señales distintas en Cloud SQL: la
+        instancia pasa a RUNNABLE mientras la operación de CREATE sigue en
+        estado RUNNING (rematando backups, replicación, el patch de
+        `authorizedNetworks`...). Consultar solo `state` es insuficiente.
+
+        Degrada a False si la consulta falla o no devuelve un dict (caso de
+        los tests, con el service mockeado): en ese escenario seguimos
+        adelante y es `_execute_when_idle` quien absorbe el posible 409.
+        """
+        try:
+            response = self._execute(
+                self.service.operations().list(project=self.project, instance=db_name)
+            )
+            items = response.get("items", []) if isinstance(response, dict) else []
+        except Exception:
+            logger.debug("No se pudieron listar las operaciones de %s", db_name)
+            return False
+        return any(op.get("status") != "DONE" for op in items)
+
     def _wait_until_runnable(
         self, db_name: str, timeout_s: int = 900, interval_s: int = 20
     ) -> bool:
-        """Sondea la instancia hasta que esté RUNNABLE. False si agota el tiempo."""
+        """Sondea hasta que la instancia esté RUNNABLE y SIN operaciones en curso.
+
+        Cloud SQL **serializa las operaciones que mutan una instancia**: si se
+        lanza `databases().insert()` mientras queda una operación viva,
+        responde `409 operationInProgress`. Por eso no basta con esperar a
+        RUNNABLE — hay que esperar también a que se vacíe la cola.
+
+        False si agota el tiempo.
+        """
         deadline = time.monotonic() + timeout_s
         while time.monotonic() < deadline:
             inst = self._execute(
                 self.service.instances().get(project=self.project, instance=db_name)
             )
-            if inst.get("state") == "RUNNABLE":
+            if inst.get("state") == "RUNNABLE" and not self._operations_in_progress(db_name):
                 return True
             time.sleep(interval_s)
         return False
+
+    def _execute_when_idle(self, build_request, attempts: int = 10, delay_s: int = 15):
+        """Ejecuta una petición reintentando ante `409 operationInProgress`.
+
+        Red de seguridad para la carrera residual: entre que
+        `_wait_until_runnable` da el visto bueno y nosotros escribimos, Cloud
+        SQL puede arrancar una operación interna. `build_request` es un
+        callable porque un objeto de petición del cliente discovery no debe
+        reutilizarse entre intentos.
+        """
+        for attempt in range(1, attempts + 1):
+            try:
+                return self._execute(build_request())
+            except HttpError as exc:
+                conflict = exc.resp.status == 409
+                if not conflict or attempt == attempts:
+                    raise
+                logger.info(
+                    "Cloud SQL ocupada (409); reintento %d/%d en %ds",
+                    attempt,
+                    attempts,
+                    delay_s,
+                )
+                time.sleep(delay_s)
 
     def _post_provision(
         self,
@@ -294,8 +349,8 @@ class GcpCloudSqlAdapter(DatabaseAdapter):
                 return
 
             # B7: base de datos con el nombre pedido.
-            self._execute(
-                self.service.databases().insert(
+            self._execute_when_idle(
+                lambda: self.service.databases().insert(
                     project=self.project,
                     instance=db_name,
                     body={"name": database_to_create},
@@ -305,8 +360,8 @@ class GcpCloudSqlAdapter(DatabaseAdapter):
             # B6: usuario admin con el nombre pedido (Cloud SQL fija además
             # `postgres`/`root`; este se añade aparte).
             try:
-                self._execute(
-                    self.service.users().insert(
+                self._execute_when_idle(
+                    lambda: self.service.users().insert(
                         project=self.project,
                         instance=db_name,
                         body={"name": username, "password": password},

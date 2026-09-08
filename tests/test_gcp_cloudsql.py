@@ -9,7 +9,9 @@ tests directos de las funciones puras de mapeo (sin mock alguno).
 
 from unittest.mock import MagicMock
 
+import httplib2
 import pytest
+from googleapiclient.errors import HttpError
 
 from app.adapters.gcp_cloudsql import (
     SIZE_TO_TIER,
@@ -298,6 +300,66 @@ def test_wait_until_runnable_timeout_returns_false() -> None:
     }
     adapter = GcpCloudSqlAdapter(service=service)
     assert adapter._wait_until_runnable("db", timeout_s=0) is False
+
+
+def test_wait_until_runnable_false_si_hay_operaciones_en_curso() -> None:
+    """RUNNABLE no basta: con una operación viva, Cloud SQL rechazaría escrituras."""
+    service = MagicMock()
+    service.instances.return_value.get.return_value.execute.return_value = {"state": "RUNNABLE"}
+    service.operations.return_value.list.return_value.execute.return_value = {
+        "items": [{"status": "RUNNING", "operationType": "CREATE"}]
+    }
+    adapter = GcpCloudSqlAdapter(service=service)
+    assert adapter._wait_until_runnable("db", timeout_s=0) is False
+
+
+def test_operations_in_progress_false_cuando_todas_done() -> None:
+    service = MagicMock()
+    service.operations.return_value.list.return_value.execute.return_value = {
+        "items": [{"status": "DONE"}, {"status": "DONE"}]
+    }
+    adapter = GcpCloudSqlAdapter(service=service)
+    assert adapter._operations_in_progress("db") is False
+
+
+def _http_error(status: int) -> HttpError:
+    """HttpError del cliente discovery con el código indicado."""
+    return HttpError(resp=httplib2.Response({"status": status}), content=b"{}")
+
+
+def test_execute_when_idle_reintenta_ante_409(monkeypatch: pytest.MonkeyPatch) -> None:
+    """El 409 `operationInProgress` se absorbe reintentando, no propaga."""
+    service = MagicMock()
+    adapter = GcpCloudSqlAdapter(service=service)
+    monkeypatch.setattr("app.adapters.gcp_cloudsql.time.sleep", lambda _: None)
+
+    intentos = {"n": 0}
+
+    def build_request():
+        intentos["n"] += 1
+        request = MagicMock()
+        if intentos["n"] < 3:
+            request.execute.side_effect = _http_error(409)
+        else:
+            request.execute.return_value = {"ok": True}
+        return request
+
+    assert adapter._execute_when_idle(build_request, attempts=5, delay_s=0) == {"ok": True}
+    assert intentos["n"] == 3
+
+
+def test_execute_when_idle_propaga_errores_no_409(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Un 403 no es transitorio: debe propagarse en el primer intento."""
+    service = MagicMock()
+    adapter = GcpCloudSqlAdapter(service=service)
+    monkeypatch.setattr("app.adapters.gcp_cloudsql.time.sleep", lambda _: None)
+
+    request = MagicMock()
+    request.execute.side_effect = _http_error(403)
+
+    with pytest.raises(HttpError):
+        adapter._execute_when_idle(lambda: request, attempts=5, delay_s=0)
+    assert request.execute.call_count == 1
 
 
 def test_note_surfaces_in_get_instance() -> None:
