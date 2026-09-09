@@ -84,18 +84,18 @@ just test-all   # incluye integración Docker → "112 passed"
 just lint       # ruff limpio
 ```
 
-## 6. Desplegado en Kubernetes (opcional, Fase 4)
+## 6. Ejecutar desde la imagen (opcional)
 
 ```bash
-just k8s-up && just k8s-deploy && just k8s-forward
+just docker-run
 ```
 
-**Qué esperar:** un cluster kind creándose (~1 min), la imagen construyéndose
-y cargándose, el rollout del deployment completándose y la misma UI en
-`http://localhost:8000` — pero servida desde dentro del cluster. Las
-instancias Docker que crees aparecerán con host `172.18.0.1` (el host visto
-desde el pod) en vez de `localhost`; todo lo demás es idéntico. Limpieza:
-`just k8s-down`. Detalles y proveedores cloud en K8s: `DEPLOY_K8S.md`.
+**Qué esperar:** la imagen construyéndose (la primera vez tarda) y la misma UI
+en `http://localhost:8000`, pero servida desde dentro del contenedor. Las
+instancias Docker que crees aparecerán con host `172.17.0.1` —la puerta de
+enlace, es decir el anfitrión visto desde el contenedor— en vez de
+`localhost`; todo lo demás es idéntico. Es semántica POSIX: en Windows puede
+requerir ajustes (ver `SETUP.md` §8.3).
 
 ## 7. Regla de oro del coste
 

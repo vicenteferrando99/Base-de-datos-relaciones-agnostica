@@ -3,10 +3,10 @@
 # Ejecuta la receta por defecto:  just
 #
 # MULTIPLATAFORMA: la mayoría de recetas son idénticas en Linux y Windows
-# porque solo invocan `uv`, `docker` o `kubectl`. Las tres que dependen del
-# sistema de ficheros o de los permisos POSIX (`clean`, `docker-clean` y
-# `k8s-deploy`) están duplicadas con los atributos [unix] / [windows]: just
-# elige la variante correcta según el sistema anfitrión.
+# porque solo invocan `uv` o `docker`. Las dos que dependen del sistema de
+# ficheros (`clean` y `docker-clean`) están duplicadas con los atributos
+# [unix] / [windows]: just elige la variante correcta según el sistema
+# anfitrión.
 
 # En Windows just usa `cmd.exe` por defecto, que no entiende `$(...)`,
 # `2>/dev/null` ni `rm`. Fijamos PowerShell para tener una sintaxis usable.
@@ -76,45 +76,19 @@ clean:
     @foreach ($d in '.pytest_cache', '.ruff_cache') { if (Test-Path $d) { Remove-Item -Recurse -Force $d } }
     @Get-ChildItem -Recurse -Directory -Filter __pycache__ -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notlike '*\.venv\*' } | Remove-Item -Recurse -Force
 
-# ---------- Fase 4: despliegue en Kubernetes local (kind + Helm) ----------
+# ---------- Empaquetado ----------
 
 # Construye la imagen Docker de la API
 docker-build:
     docker build -t cloud-db-api:0.1.0 .
 
-# Crea el cluster kind (con el socket de Docker montado en el nodo)
-k8s-up:
-    kind create cluster --config deploy/kind-config.yaml
-
-# Construye, carga la imagen en el nodo y despliega/actualiza con Helm.
-# El gid del grupo docker del host se detecta y se pasa al chart para que
-# el pod pueda usar el socket (supplementalGroups).
-[doc("Construye, carga la imagen en kind y despliega/actualiza con Helm")]
-[unix]
-k8s-deploy: docker-build
-    kind load docker-image cloud-db-api:0.1.0 --name cloud-db-api
-    helm upgrade --install cloud-db-api deploy/helm/cloud-db-api \
-        --set dockerSocket.groupId=$(getent group docker | cut -d: -f3)
-    kubectl rollout status deployment/cloud-db-api-cloud-db-api --timeout=120s
-
-# Variante Windows: no existe `getent` ni un grupo `docker` del host, así que
-# no se puede calcular el gid. Se usa el valor por defecto del chart, que
-# corresponde al socket dentro de la VM de Docker Desktop. Ver docs/SETUP.md §8.
-[doc("Construye, carga la imagen en kind y despliega/actualiza con Helm")]
-[windows]
-k8s-deploy: docker-build
-    kind load docker-image cloud-db-api:0.1.0 --name cloud-db-api
-    helm upgrade --install cloud-db-api deploy/helm/cloud-db-api
-    kubectl rollout status deployment/cloud-db-api-cloud-db-api --timeout=120s
-
-# Acceso local a la API desplegada (UI en http://localhost:8000)
-k8s-forward:
-    kubectl port-forward svc/cloud-db-api-cloud-db-api 8000:8000
-
-# Logs del pod de la API
-k8s-logs:
-    kubectl logs -l app.kubernetes.io/name=cloud-db-api -f
-
-# Destruye el cluster kind completo
-k8s-down:
-    kind delete cluster --name cloud-db-api
+# Monta el socket del daemon para que el adaptador local siga funcionando desde
+# dentro del contenedor, y anuncia la puerta de enlace como host de las
+# instancias: dentro del contenedor "localhost" es el propio contenedor, no la
+# máquina anfitriona.
+[doc("Ejecuta la API desde la imagen Docker")]
+docker-run: docker-build
+    docker run --rm -p 8000:8000 \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -e DOCKER_INSTANCE_HOST=172.17.0.1 \
+        cloud-db-api:0.1.0

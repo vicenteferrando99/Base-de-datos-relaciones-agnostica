@@ -29,7 +29,6 @@ herramientas y dónde guardan sus credenciales.
 | gcloud CLI | Setup de GCP | `sudo snap install google-cloud-cli --classic` | `winget install Google.CloudSDK` |
 | AWS CLI | Setup/gestión de AWS (opcional) | `sudo snap install aws-cli --classic` | `winget install Amazon.AWSCLI` |
 | psql | SQL contra las instancias (opcional: la UI ya trae consola) | `sudo apt install postgresql-client` | `winget install PostgreSQL.PostgreSQL.16` |
-| helm / kind | Solo para la fase 4 (Kubernetes) | paquetes del sistema | `winget install Helm.Helm` / `winget install Kubernetes.kind` |
 
 Instalar dependencias del proyecto:
 
@@ -320,24 +319,19 @@ La detección de IP pública para la apertura automática de red
 
 | Elemento | Motivo |
 |---|---|
-| `justfile` | En Windows `just` usa `cmd.exe`, que no entiende `$(...)`, `2>/dev/null` ni `rm`. Se fija PowerShell con `set windows-shell` y las recetas `clean`, `docker-clean` y `k8s-deploy` se duplican con los atributos `[unix]` / `[windows]`. |
+| `justfile` | En Windows `just` usa `cmd.exe`, que no entiende `$(...)`, `2>/dev/null` ni `rm`. Se fija PowerShell con `set windows-shell` y las recetas `clean` y `docker-clean` se duplican con los atributos `[unix]` / `[windows]`. |
 | `.env` | `DOCKER_HOST` debe quedar sin definir (ver §3). |
 | Rutas de credenciales | Distintas ubicación en Windows (ver §4.2 y §5.2). |
 
-### 8.3. Limitación conocida: fase 4 (Kubernetes)
+### 8.3. Ejecutar la API dentro de un contenedor
 
-El despliegue en kind + Helm está diseñado sobre **semántica POSIX** y no se
-ha validado en Windows:
+`just docker-run` construye la imagen y la lanza montando el socket del
+daemon. Ojo con dos detalles, ambos de semántica POSIX:
 
-- `deploy/kind-config.yaml` monta `/var/run/docker.sock` como `hostPath`.
-- `deploy/helm/cloud-db-api/values.yaml` usa `dockerSocket.groupId` con
-  `supplementalGroups`, un mecanismo de permisos de grupo de Linux que no
-  tiene equivalente en Windows.
-- La receta original calculaba el gid con `getent group docker`, comando
-  inexistente en Windows.
-
-La variante `[windows]` de `k8s-deploy` omite el `--set` del gid y usa el
-valor por defecto del chart (el socket dentro de la VM Linux de Docker
-Desktop). **Puede requerir ajustes manuales.** Si el objetivo es reproducir
-la fase 4 tal cual se documentó, lo más fiable es ejecutarla desde WSL2 o
-desde una máquina Linux.
+- El montaje del socket (`/var/run/docker.sock`) y los permisos de grupo que
+  lo acompañan son de Linux. En Windows con Docker Desktop el socket vive
+  dentro de la VM Linux y **puede requerir ajustes manuales**.
+- Dentro del contenedor, `localhost` es el propio contenedor. Por eso la
+  receta fija `DOCKER_INSTANCE_HOST` a la puerta de enlace de la red: sin
+  eso, los datos de conexión que devuelve la API no son alcanzables desde
+  fuera. Ver el comentario de `docker_instance_host` en `app/config.py`.
