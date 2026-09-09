@@ -125,9 +125,12 @@ def select_rows(payload: SelectPayload) -> dict:
 
 
 class MigrationPreviewPayload(BaseModel):
-    """Solo necesita el origen: previsualizar no toca el destino."""
+    """El destino es opcional: si se aporta, se comprueba (solo lectura) qué
+    tablas ya existen allí, que es lo que determina si la migración creará
+    tablas nuevas o fusionará en las existentes."""
 
     source: ConnectionParams
+    target: ConnectionParams | None = None
 
 
 class MigrationPayload(BaseModel):
@@ -172,7 +175,23 @@ def preview_migration(payload: MigrationPreviewPayload) -> dict:
     finally:
         connection.close()
 
+    # Si se aporta el destino, se mira qué tablas ya tiene. Es solo lectura y
+    # permite que la interfaz decida por el usuario entre crear y fusionar.
+    already_there: list[str] = []
+    if payload.target is not None:
+        target_conn = _connect(payload.target)
+        try:
+            present = migration.existing_tables(
+                target_conn, payload.target.engine, payload.target.dbname
+            )
+            already_there = sorted(present & {t.name for t in schema.tables})
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        finally:
+            target_conn.close()
+
     return {
+        "target_existing": already_there,
         "tables": [
             {
                 "name": t.name,
@@ -215,6 +234,27 @@ def run_migration(payload: MigrationPayload) -> dict:
                 detail="El origen no tiene ninguna tabla migrable.",
             )
         target_conn = _connect(payload.target)
+
+        # Colisiones ANTES de escribir nada. Sin esto, el fallo llega como un
+        # error crudo del driver a mitad de la migración y con parte del
+        # trabajo ya confirmado.
+        if payload.create_tables:
+            selected = set(payload.tables or [t.name for t in schema.tables])
+            present = migration.existing_tables(
+                target_conn, payload.target.engine, payload.target.dbname
+            )
+            collisions = sorted(present & selected)
+            if collisions:
+                cuantas = "esta tabla" if len(collisions) == 1 else "estas tablas"
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"El destino ya tiene {cuantas}: {', '.join(collisions)}. "
+                        "Desmarca «Crear las tablas en el destino» para añadir las "
+                        "filas a las tablas existentes, o elige otro destino."
+                    ),
+                )
+
         report = migration.migrate(
             source_connection=source_conn,
             target_connection=target_conn,

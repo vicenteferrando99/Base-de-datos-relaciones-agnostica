@@ -168,6 +168,12 @@ WHERE table_schema = %s
 ORDER BY table_name, ordinal_position
 """
 
+_TABLES_SQL = """
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = %s AND table_type = 'BASE TABLE'
+"""
+
 _PRIMARY_KEYS_SQL = """
 SELECT tc.table_name, kcu.column_name
 FROM information_schema.table_constraints AS tc
@@ -187,6 +193,22 @@ def _schema_name(engine: DatabaseEngine, dbname: str) -> str:
     separados de la base de datos, así que `table_schema` ES el nombre de la BD.
     """
     return "public" if engine == DatabaseEngine.POSTGRES else dbname
+
+
+def existing_tables(connection, engine: DatabaseEngine, dbname: str) -> set[str]:
+    """Tablas que ya existen en una base de datos.
+
+    Se usa contra el DESTINO para detectar colisiones antes de escribir. Sin
+    esta comprobación, intentar crear una tabla que ya existe produce un error
+    crudo del driver (`relation ... already exists` / `Table ... already
+    exists`) que no le dice al usuario qué hacer: la decisión real es si quiere
+    **fusionar** en la tabla existente o si se ha equivocado de destino, y eso
+    debe preguntarse antes, no descubrirse a mitad.
+    """
+    schema = _schema_name(engine, dbname)
+    with connection.cursor() as cur:
+        cur.execute(_TABLES_SQL, (schema,))
+        return {row[0] for row in cur.fetchall()}
 
 
 def introspect(connection, engine: DatabaseEngine, dbname: str) -> SchemaReport:

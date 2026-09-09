@@ -222,6 +222,23 @@ def test_migracion_arrastra_los_avisos_de_columnas_no_soportadas():
     assert any("no soportado" in w for w in report.warnings)
 
 
+def test_existing_tables_consulta_el_esquema_del_destino():
+    target = FakeConnection([[("prestamos",), ("clientes",)]])
+
+    present = migration.existing_tables(target, DatabaseEngine.POSTGRES, "ventas")
+
+    assert present == {"prestamos", "clientes"}
+    assert target.statements[0][2] == ("public",)
+
+
+def test_existing_tables_usa_la_bd_como_esquema_en_mysql():
+    target = FakeConnection([[("prestamos",)]])
+
+    migration.existing_tables(target, DatabaseEngine.MYSQL, "ventas")
+
+    assert target.statements[0][2] == ("ventas",)
+
+
 @pytest.mark.parametrize(
     ("native", "expected"),
     [

@@ -1653,6 +1653,15 @@
                     </label>
                 </div>
 
+                <div x-show="mig.preview?.target_existing?.length" x-cloak
+                     class="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-900">
+                    El destino <strong>ya tiene</strong>
+                    <span x-text="(mig.preview?.target_existing || []).join(', ')"></span>.
+                    Se ha desmarcado «Crear las tablas» automáticamente: las filas se
+                    <strong>añadirán</strong> a las tablas existentes. Si vuelves a marcarla,
+                    la migración fallará por tabla duplicada.
+                </div>
+
                 <template x-if="mig.preview && !mig.preview.tables.length">
                     <p class="text-sm text-slate-500">El origen no tiene ninguna tabla migrable.</p>
                 </template>
@@ -2046,16 +2055,24 @@
                     this.mig.busy = true; this.mig.phase = 'preview';
                     this.mig.error = ''; this.mig.report = null;
                     try {
+                        // Si el destino ya está completo, se manda también: así
+                        // sabemos qué tablas existen allí y podemos decidir por
+                        // el usuario entre crear y fusionar.
+                        const body = { source: this.migConnBody('source') };
+                        if (this.migTargetReady()) body.target = this.migConnBody('target');
                         const r = await fetch('/migrate/preview', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ source: this.migConnBody('source') }),
+                            body: JSON.stringify(body),
                         });
                         const data = await r.json().catch(() => ({}));
                         if (!r.ok) throw new Error(data.detail || ('HTTP ' + r.status));
                         this.mig.preview = data;
                         // Por defecto se seleccionan todas: lo habitual es migrar entero.
                         this.mig.tables = data.tables.map(t => t.name);
+                        // Si alguna ya existe en el destino, crear fallaría: la
+                        // opción sensata es fusionar, y se deja marcada así.
+                        this.mig.createTables = !(data.target_existing || []).length;
                     } catch (e) {
                         this.mig.preview = null;
                         this.mig.error = e.message;
