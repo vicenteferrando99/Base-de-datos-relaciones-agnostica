@@ -169,7 +169,6 @@ cloud-db-api/
 ├── ui/index.html              # UI web (Tailwind + Alpine, sin build step)
 ├── tests/                     # 137 tests; ver conftest.py y fakes.py
 ├── docs/
-│   ├── MEMORIA.md             # Andamiaje de la memoria del TFM
 │   ├── INFORME_DESARROLLO.md  # Crónica del desarrollo (bloques, decisiones, evidencia)
 │   ├── GUIA_EJECUCION.md      # Cómo ejecutarlo y qué esperar en cada paso
 │   ├── DATA_PLANE.md          # Diseño de la capa agnóstica de motor

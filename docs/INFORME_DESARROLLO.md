@@ -1,9 +1,8 @@
 # Informe de desarrollo — qué se ha construido y por qué
 
 > Registro cronológico del desarrollo del TFM, con las decisiones tomadas y
-> la evidencia de verificación de cada bloque. Complementa a `MEMORIA.md`
-> (andamiaje de la memoria): esto es la crónica; aquello, la estructura del
-> documento final. Cada bloque referencia su commit.
+> la evidencia de verificación de cada bloque. Es la crónica del proyecto; la
+> memoria final se redacta aparte. Cada bloque referencia su commit.
 
 ## Visión de conjunto
 
@@ -118,8 +117,7 @@ Pendiente el smoke real en nube (la lógica está cubierta con mocks).
 
 - **112 tests** (unitarios, dialectos puros, moto, mocks GCP, endpoints,
   integración Docker real) + CI verde.
-- Documentos técnicos: `MEMORIA.md` (esqueleto de la memoria),
-  `DATA_PLANE.md` (diseño del data plane y de la migración),
+- Documentos técnicos: `DATA_PLANE.md` (diseño del data plane y de la migración),
   `SETUP.md` (credenciales), `GUIA_EJECUCION.md` (cómo ejecutar y qué
   esperar) y este informe.
 - Desarrollo técnico COMPLETO. Queda la Fase 5: evaluación (métricas de
