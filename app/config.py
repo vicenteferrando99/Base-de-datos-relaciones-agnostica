@@ -36,10 +36,13 @@ class Settings(BaseSettings):
 
     # Host que se anuncia en los datos de conexión de las instancias Docker.
     # "localhost" vale cuando la API corre en la misma máquina que el daemon.
-    # Al desplegar la API en Kubernetes (kind) el daemon sigue siendo el del
-    # host pero "localhost" dentro del pod es el propio pod: aquí se pone la
-    # IP por la que el pod alcanza al host (p. ej. la puerta de enlace de la
-    # red de kind, 172.18.0.1). Lo fija el chart de Helm.
+    #
+    # Si la propia API se ejecuta DENTRO de un contenedor, el daemon sigue
+    # siendo el del anfitrión pero "localhost" pasa a ser el contenedor mismo,
+    # de modo que los datos de conexión que se devuelven al cliente dejan de
+    # ser alcanzables. En ese caso hay que poner aquí la dirección por la que
+    # el contenedor llega al anfitrión (la puerta de enlace de su red, p. ej.
+    # 172.17.0.1 en la red bridge por defecto de Docker).
     docker_instance_host: str = "localhost"
 
     # --- AWS (solo usado por aws_rds) ---

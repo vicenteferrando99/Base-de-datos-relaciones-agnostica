@@ -90,22 +90,21 @@ puede detectar, la instancia se crea igual (red cerrada) y se avisa en
 reutilización, puerto MySQL, degradación, override del usuario; body de GCP).
 Pendiente el smoke real en nube (la lógica está cubierta con mocks).
 
-## Bloque 4 — Despliegue en Kubernetes (commit `81f8e4a`, Fase 4)
+## Bloque 4 — Empaquetado (commit `81f8e4a`)
 
 - `Dockerfile` multi-stage con uv (capa de dependencias cacheada), non-root.
-- Cluster `kind` con el socket de Docker del host montado en el nodo
-  (`deploy/kind-config.yaml`).
-- Helm chart (`deploy/helm/cloud-db-api/`): proveedor por ConfigMap,
-  credenciales cloud como Secrets externos opcionales, probes a `/health`,
-  `replicaCount: 1` fijo y justificado (la API tiene estado de proceso).
-- Hallazgo técnico: "localhost" dentro del pod no es el host → nuevo
-  `Settings.docker_instance_host`, que el chart fija a la puerta de enlace
-  de la red de kind (172.18.0.1).
-- Recetas `just k8s-up / k8s-deploy / k8s-forward / k8s-logs / k8s-down`.
+- Hallazgo técnico: "localhost" dentro del contenedor no es el anfitrión →
+  nuevo `Settings.docker_instance_host`, que debe apuntar a la puerta de
+  enlace de la red para que los datos de conexión sean alcanzables.
+- Receta `just docker-build` (y después `docker-run`).
 
-**Verificación:** la API desplegada en kind creó un Postgres real a través
-del socket montado, ejecutó operaciones agnósticas desde el pod y lo borró.
-`helm lint` limpio.
+> **Retirado del alcance en septiembre de 2026.** Este bloque incluía
+> originalmente un despliegue en Kubernetes local (cluster `kind` + Helm
+> chart en `deploy/`, recetas `just k8s-*`). Se eliminó del proyecto por
+> decisión de alcance: no se iba a mantener ni revisar, y sostener en la
+> memoria un componente sin validar habría sido peor que no tenerlo. El
+> empaquetado en imagen sí se conserva, porque es independiente y sí se usa.
+> El código retirado sigue disponible en el historial de git.
 
 ## Correcciones por el camino (no planificadas, encontradas trabajando)
 
@@ -119,9 +118,9 @@ del socket montado, ejecutó operaciones agnósticas desde el pod y lo borró.
 
 - **112 tests** (unitarios, dialectos puros, moto, mocks GCP, endpoints,
   integración Docker real) + CI verde.
-- 4 documentos técnicos: `MEMORIA.md` (esqueleto de la memoria),
-  `DATA_PLANE.md` (diseño data plane), `DEPLOY_K8S.md` (Fase 4),
-  `SETUP.md` (credenciales), más `GUIA_EJECUCION.md` (cómo ejecutar y qué
+- Documentos técnicos: `MEMORIA.md` (esqueleto de la memoria),
+  `DATA_PLANE.md` (diseño del data plane y de la migración),
+  `SETUP.md` (credenciales), `GUIA_EJECUCION.md` (cómo ejecutar y qué
   esperar) y este informe.
 - Desarrollo técnico COMPLETO. Queda la Fase 5: evaluación (métricas de
   desacoplamiento, costes) y redacción de la memoria; y el smoke real de la

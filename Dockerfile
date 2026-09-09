@@ -1,4 +1,4 @@
-# Imagen de la propia API (Fase 4: despliegue en Kubernetes).
+# Imagen de la propia API.
 #
 # Multi-stage: el builder instala las dependencias con uv en un .venv y el
 # runtime solo copia ese .venv + el código. Ambas etapas usan la MISMA imagen
@@ -26,8 +26,9 @@ RUN uv sync --frozen --no-dev
 
 FROM python:3.12-slim
 
-# Usuario no privilegiado. En Kubernetes, el acceso al socket de Docker se
-# resuelve con supplementalGroups en el chart (gid del grupo docker del host).
+# Usuario no privilegiado. Si se monta el socket del daemon para usar el
+# adaptador local desde dentro del contenedor, hay que darle acceso al grupo
+# propietario del socket en el anfitrión (`--group-add` al ejecutar).
 RUN useradd --create-home --uid 10001 apiuser
 
 WORKDIR /app

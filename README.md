@@ -40,10 +40,12 @@ Funcionalidad:
       el data plane conecte sin pasos manuales.
 - [x] UI web (Tailwind + Alpine, sin build): panel de instancias, consola SQL
       y constructor de operaciones que muestra el SQL generado por el dialecto.
-- [x] Despliegue en Kubernetes local: `Dockerfile` + cluster kind + Helm chart.
-      Ver [`docs/DEPLOY_K8S.md`](docs/DEPLOY_K8S.md).
-- [x] 112 tests (modelo, dialectos, adaptadores con mocks, endpoints, integración
-      con Docker real) + CI en GitHub Actions.
+- [x] Migración de datos entre instancias, entre proveedores y entre motores.
+      Ver [`docs/DATA_PLANE.md`](docs/DATA_PLANE.md) §7.
+- [x] Empaquetado en imagen Docker multi-stage (`Dockerfile`), con usuario sin
+      privilegios.
+- [x] 137 tests (modelo, dialectos, adaptadores con mocks, migración, endpoints,
+      integración con Docker real) + CI en GitHub Actions.
 
 ## Requisitos
 
@@ -56,8 +58,8 @@ Funcionalidad:
   (`aws configure` / `gcloud auth application-default login`); ver
   [`docs/SETUP.md`](docs/SETUP.md)
 
-Desarrollado en Ubuntu y verificado también en Windows 11 (la fase 4,
-Kubernetes, es la excepción: ver [`docs/SETUP.md`](docs/SETUP.md) §8).
+Desarrollado en Ubuntu y verificado también en Windows 11
+(ver [`docs/SETUP.md`](docs/SETUP.md) §8).
 
 ## Puesta en marcha
 
@@ -79,13 +81,15 @@ Una vez levantada:
 - UI web: http://localhost:8000
 - Swagger UI: http://localhost:8000/docs
 
-### Despliegue en Kubernetes local (opcional)
+### Ejecutar desde la imagen (opcional)
 
 ```bash
-just k8s-up && just k8s-deploy && just k8s-forward
+just docker-run
 ```
 
-Detalles (kind, Helm, credenciales cloud como Secrets): [`docs/DEPLOY_K8S.md`](docs/DEPLOY_K8S.md).
+Monta el socket del daemon para que el adaptador local siga funcionando y
+anuncia la puerta de enlace como host de las instancias: dentro del contenedor
+`localhost` es el contenedor, no la máquina anfitriona.
 
 ## Ejemplo de uso
 
@@ -163,16 +167,12 @@ cloud-db-api/
 │       ├── dialects.py        #   SqlDialect: PostgresDialect, MySqlDialect
 │       └── api.py             #   endpoints /query y /data/*
 ├── ui/index.html              # UI web (Tailwind + Alpine, sin build step)
-├── tests/                     # 112 tests; ver conftest.py y fakes.py
-├── deploy/
-│   ├── kind-config.yaml       # Cluster kind (con socket de Docker montado)
-│   └── helm/cloud-db-api/     # Helm chart de la API
+├── tests/                     # 137 tests; ver conftest.py y fakes.py
 ├── docs/
 │   ├── MEMORIA.md             # Andamiaje de la memoria del TFM
 │   ├── INFORME_DESARROLLO.md  # Crónica del desarrollo (bloques, decisiones, evidencia)
 │   ├── GUIA_EJECUCION.md      # Cómo ejecutarlo y qué esperar en cada paso
 │   ├── DATA_PLANE.md          # Diseño de la capa agnóstica de motor
-│   ├── DEPLOY_K8S.md          # Despliegue en Kubernetes local (Fase 4)
 │   └── SETUP.md               # Puesta en marcha de credenciales AWS/GCP
 ├── Dockerfile                 # Imagen de la API (multi-stage con uv)
 ├── scripts/demo_ingest.py     # PoC data plane provider-agnóstico
