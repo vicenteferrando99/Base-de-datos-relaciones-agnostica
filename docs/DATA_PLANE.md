@@ -199,5 +199,7 @@ destino (mysql)   : CREATE TABLE `prestamos` (`id` INTEGER NOT NULL, ... `import
 - Ampliar el conjunto de operaciones (joins, agregaciones, ALTER, índices).
 - Más motores (SQL Server, MariaDB): añadir un dialecto = rellenar un TYPE_MAP
   y un método `quote` (~20 líneas).
-- Traducción de SQL arbitrario entre dialectos: fuera del alcance del TFM
-  (ver CLAUDE.md §10.2).
+- Traducción de SQL arbitrario entre dialectos: fuera del alcance del TFM.
+  Exigiría un análisis sintáctico completo y resolver las diferencias de
+  funciones, tipos y semántica entre motores; es un problema comparable en
+  tamaño al propio trabajo.

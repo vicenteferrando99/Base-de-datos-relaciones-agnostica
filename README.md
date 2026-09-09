@@ -177,8 +177,8 @@ cloud-db-api/
 ├── scripts/demo_ingest.py     # PoC data plane provider-agnóstico
 ├── .github/workflows/ci.yml   # Pipeline CI (lint + tests rápidos)
 ├── justfile                   # Tareas comunes
-├── pyproject.toml             # Deps, ruff, pytest
-└── CLAUDE.md                  # Contexto del proyecto para sesiones de Claude Code
+├── LICENSE                    # MIT
+└── pyproject.toml             # Deps, ruff, pytest
 ```
 
 ## Autor

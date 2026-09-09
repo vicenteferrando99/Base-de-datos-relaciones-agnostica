@@ -123,7 +123,7 @@ class SelectQuery(BaseModel):
 
     Deliberadamente simple: una tabla, columnas opcionales, filtros AND,
     orden y límite. Sin joins ni agregaciones — ampliar el conjunto es
-    trabajo futuro (ver CLAUDE.md §10.2).
+    trabajo futuro (ver docs/DATA_PLANE.md §8).
     """
 
     table: Identifier

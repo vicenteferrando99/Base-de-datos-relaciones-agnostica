@@ -8,7 +8,7 @@ consultar) en un modelo abstracto y cada dialecto genera el SQL nativo.
 
 Es el mismo patrón Adapter aplicado a la otra dimensión del problema.
 
-Acotación deliberada (ver CLAUDE.md §10.1): el conjunto de operaciones es
-CERRADO. NO se parsea ni se traduce SQL arbitrario escrito por el usuario;
+Acotación deliberada (ver docs/DATA_PLANE.md §1): el conjunto de operaciones
+es CERRADO. NO se parsea ni se traduce SQL arbitrario escrito por el usuario;
 eso (dialectos completos, AST) queda como trabajo futuro.
 """
