@@ -61,6 +61,28 @@ _CONNECTORS: dict[DatabaseEngine, Callable] = {
 }
 
 
+def connect(
+    *,
+    engine: DatabaseEngine,
+    host: str,
+    port: int,
+    user: str,
+    password: str,
+    dbname: str,
+    timeout: int = 10,
+):
+    """Abre una conexión al motor indicado y devuelve el objeto del driver.
+
+    `run_query` cubre el caso de una sentencia suelta; esta función existe para
+    quien necesita mantener la conexión abierta a lo largo de varias sentencias,
+    como la migración entre proveedores (`app/dataops/migration.py`), que lee
+    por lotes del origen y escribe en el destino sin cerrar en medio.
+    """
+    return _CONNECTORS[engine](
+        host=host, port=port, user=user, password=password, dbname=dbname, timeout=timeout
+    )
+
+
 def _column_name(desc_entry: Any) -> str:
     """Nombre de columna de una entrada de `cursor.description`.
 

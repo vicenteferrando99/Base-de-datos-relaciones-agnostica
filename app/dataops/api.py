@@ -12,6 +12,11 @@ Separados de `app/main.py` para que aquel quede dedicado al control plane
   propósito: es la evidencia del agnosticismo (misma petición, distinto SQL
   según el motor) y facilita la demo y la memoria.
 
+- `POST /migrate/preview` y `POST /migrate` — migración entre dos instancias
+  cualesquiera (ver `app/dataops/migration.py`). Van en dos pasos a propósito:
+  previsualizar es de solo lectura sobre el origen, mientras que migrar
+  escribe en el destino.
+
 En todos los casos los datos de conexión viajan en cada petición: la API no
 almacena credenciales de instancias.
 """
@@ -19,9 +24,10 @@ almacena credenciales de instancias.
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app import query
+from app.dataops import migration
 from app.dataops.dialects import get_dialect
 from app.dataops.models import RowsInsert, SelectQuery, TableDefinition
 from app.models import DatabaseEngine
@@ -113,3 +119,126 @@ def select_rows(payload: SelectPayload) -> dict:
     sql, params = get_dialect(payload.connection.engine).select(payload.query)
     result = _execute(payload.connection, sql, params=params or None)
     return {"sql": sql, **result}
+
+
+# ---------- Migración entre instancias (agnóstica de proveedor y de motor) ----------
+
+
+class MigrationPreviewPayload(BaseModel):
+    """Solo necesita el origen: previsualizar no toca el destino."""
+
+    source: ConnectionParams
+
+
+class MigrationPayload(BaseModel):
+    source: ConnectionParams
+    target: ConnectionParams
+    #: Tablas a migrar. None o lista vacía => todas las del origen.
+    tables: list[str] | None = None
+    #: Si el destino ya tiene las tablas creadas, ponerlo a False y solo se copian filas.
+    create_tables: bool = True
+    batch_size: int = Field(default=migration.DEFAULT_BATCH_SIZE, ge=1, le=10000)
+
+
+def _connect(conn: ConnectionParams):
+    """Abre conexión traduciendo cualquier fallo de red/driver a HTTP 400."""
+    try:
+        return query.connect(
+            engine=conn.engine,
+            host=conn.host,
+            port=conn.port,
+            user=conn.user,
+            password=conn.password,
+            dbname=conn.dbname,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"No se pudo conectar: {exc}") from exc
+
+
+@router.post("/migrate/preview")
+def preview_migration(payload: MigrationPreviewPayload) -> dict:
+    """Inspecciona el esquema del origen y devuelve el plan, SIN tocar el destino.
+
+    Paso deliberadamente separado de la ejecución: una migración escribe en el
+    destino, y el usuario debe poder ver antes qué tablas se van a crear, con
+    qué tipos y qué columnas quedan fuera por no ser representables en el
+    modelo abstracto.
+    """
+    connection = _connect(payload.source)
+    try:
+        schema = migration.introspect(connection, payload.source.engine, payload.source.dbname)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        connection.close()
+
+    return {
+        "tables": [
+            {
+                "name": t.name,
+                "columns": [
+                    {
+                        "name": c.name,
+                        "type": c.type.value,
+                        "primary_key": c.primary_key,
+                        "nullable": c.nullable,
+                    }
+                    for c in t.columns
+                ],
+            }
+            for t in schema.tables
+        ],
+        "unsupported": [
+            {"table": u.table, "column": u.column, "native_type": u.native_type}
+            for u in schema.unsupported
+        ],
+        "warnings": schema.warnings,
+    }
+
+
+@router.post("/migrate")
+def run_migration(payload: MigrationPayload) -> dict:
+    """Migra esquema y datos del origen al destino.
+
+    Funciona entre proveedores distintos y entre motores distintos por la misma
+    vía: el esquema del origen se traduce al modelo abstracto y es el dialecto
+    del destino quien genera su SQL nativo. La migración no habla con ningún
+    SDK de proveedor — solo con las dos bases de datos.
+    """
+    source_conn = _connect(payload.source)
+    target_conn = None
+    try:
+        schema = migration.introspect(source_conn, payload.source.engine, payload.source.dbname)
+        if not schema.tables:
+            raise HTTPException(
+                status_code=400,
+                detail="El origen no tiene ninguna tabla migrable.",
+            )
+        target_conn = _connect(payload.target)
+        report = migration.migrate(
+            source_connection=source_conn,
+            target_connection=target_conn,
+            source_engine=payload.source.engine,
+            target_engine=payload.target.engine,
+            schema=schema,
+            tables=payload.tables or None,
+            create_tables=payload.create_tables,
+            batch_size=payload.batch_size,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        source_conn.close()
+        if target_conn is not None:
+            target_conn.close()
+
+    return {
+        "tables": [
+            {"table": t.table, "created": t.created, "rows": t.rows, "sql": t.sql}
+            for t in report.tables
+        ],
+        "total_rows": report.total_rows,
+        "warnings": report.warnings,
+    }

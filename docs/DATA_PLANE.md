@@ -126,7 +126,75 @@ petición JSON (solo cambia `engine` en la conexión):
 Reproducible con la UI (pestaña Consultas → "Operaciones (agnóstico de
 motor)") o con `curl` (ver README).
 
-## 7. Trabajo futuro de esta capa
+## 7. Migración entre instancias (sep 2026)
+
+`app/dataops/migration.py` reutiliza las dos abstracciones anteriores para
+mover una base de datos de una instancia a otra:
+
+1. **Inspecciona** el esquema del origen leyendo `information_schema` —que
+   ambos motores implementan igual, así que la consulta es la misma— y lo
+   traduce a `ColumnType`, el modelo abstracto.
+2. **Recrea** las tablas en el destino con `dialect.create_table()`, es decir,
+   generando el SQL nativo **del motor destino**.
+3. **Copia** las filas por lotes con `dialect.insert()` y `executemany`.
+
+Como el paso intermedio es el modelo abstracto, salen gratis las cuatro
+combinaciones sin código específico para ninguna:
+
+| Origen | Destino | Caso |
+|---|---|---|
+| AWS RDS | GCP Cloud SQL | mismo motor, distinto proveedor |
+| GCP Cloud SQL | AWS RDS | el inverso |
+| Docker local | cualquiera de las dos | subir un entorno local a la nube |
+| PostgreSQL | MySQL | distinto motor, mismo o distinto proveedor |
+
+La migración **no habla con ningún SDK de proveedor**: solo con las dos bases
+de datos, con el driver de cada motor. Por eso funciona igual entre nubes que
+entre una nube y un contenedor.
+
+### Endpoints
+
+- `POST /migrate/preview` — solo lectura sobre el origen. Devuelve las tablas
+  con sus columnas ya traducidas, las columnas descartadas y los avisos.
+- `POST /migrate` — ejecuta. Acepta `tables` (subconjunto), `create_tables`
+  (por si el destino ya las tiene) y `batch_size`.
+
+Van en dos pasos a propósito: migrar **escribe en el destino**, y el usuario
+debe ver antes qué se va a crear. La UI lo refleja como "1 · Previsualizar" y
+"2 · Migrar" en la pestaña **Migración**.
+
+### Alcance y límites
+
+Se migran tablas, columnas, tipos, nulabilidad, clave primaria y filas. **No**
+se migran: índices secundarios, claves ajenas, CHECK/UNIQUE, valores por
+defecto, secuencias/AUTO_INCREMENT, vistas, funciones, triggers ni permisos.
+
+Una columna cuyo tipo nativo no tenga equivalente entre los nueve tipos
+abstractos **no se traduce a ciegas**: se reporta como no soportada en la
+previsualización y queda fuera. Es la misma filosofía que la matriz de
+capacidades: declarar el hueco en vez de fingir que no existe.
+
+### Asimetría que esta capa destapa
+
+`information_schema` de MySQL devuelve `tinyint` tanto para un `BOOLEAN` como
+para un entero pequeño, porque MySQL implementa el primero como `TINYINT(1)`.
+Al leer un esquema de MySQL es **imposible** distinguirlos, así que se
+generaliza a `integer` y se avisa. Consecuencia: un `BOOLEAN` de PostgreSQL que
+viaje a MySQL y vuelva regresa como `integer`. Es una pérdida de información
+real, inherente al motor y no a esta implementación.
+
+### Verificado
+
+Prueba de humo del 2026-09-09, PostgreSQL → MySQL sobre dos contenedores
+locales, con la tabla `prestamos` (integer, string, decimal, boolean, date):
+
+```
+origen  (postgres): CREATE TABLE "prestamos" ("id" INTEGER NOT NULL, ... "importe" NUMERIC(18, 4), ...)
+destino (mysql)   : CREATE TABLE `prestamos` (`id` INTEGER NOT NULL, ... `importe` DECIMAL(18, 4), ...)
+3 filas copiadas; SELECT de verificación en el destino devuelve los mismos datos
+```
+
+## 8. Trabajo futuro de esta capa
 
 - Ampliar el conjunto de operaciones (joins, agregaciones, ALTER, índices).
 - Más motores (SQL Server, MariaDB): añadir un dialecto = rellenar un TYPE_MAP

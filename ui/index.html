@@ -726,12 +726,10 @@
                 <div class="max-w-2xl">
                     <div class="flex items-center gap-2 mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-200">
                         <span class="w-7 h-px bg-indigo-300/70"></span>
-                        <span x-text="tab === 'instances' ? 'Infraestructura' : 'Data workspace'"></span>
+                        <span x-text="hero().eyebrow"></span>
                     </div>
-                    <h2 class="text-2xl sm:text-3xl font-bold tracking-tight"
-                        x-text="tab === 'instances' ? 'Tus bases de datos, en un solo lugar.' : 'Consulta tus datos sin fricción.'"></h2>
-                    <p class="mt-2 max-w-xl text-sm leading-6 text-slate-300"
-                       x-text="tab === 'instances' ? 'Aprovisiona y administra instancias locales o cloud desde una experiencia unificada.' : 'Ejecuta SQL o construye operaciones portables entre PostgreSQL y MySQL.'"></p>
+                    <h2 class="text-2xl sm:text-3xl font-bold tracking-tight" x-text="hero().title"></h2>
+                    <p class="mt-2 max-w-xl text-sm leading-6 text-slate-300" x-text="hero().subtitle"></p>
                 </div>
                 <div class="grid grid-cols-3 gap-2 sm:gap-3 lg:min-w-[430px]">
                     <div class="rounded-xl border border-white/10 bg-white/[.07] px-3 py-3.5 sm:px-4 backdrop-blur-sm">
@@ -782,7 +780,7 @@
         </div>
 
         <!-- Pestañas -->
-        <div class="surface rounded-2xl p-1.5 flex gap-1 max-w-md" role="tablist" aria-label="Secciones principales">
+        <div class="surface rounded-2xl p-1.5 flex gap-1 max-w-2xl" role="tablist" aria-label="Secciones principales">
             <button @click="tab = 'instances'"
                     role="tab" :aria-selected="tab === 'instances'"
                     class="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition flex items-center justify-center gap-2"
@@ -807,6 +805,15 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 Consultas
+            </button>
+            <button @click="showMigrateTab()"
+                    role="tab" :aria-selected="tab === 'migrate'"
+                    class="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition flex items-center justify-center gap-2"
+                    :class="tab === 'migrate' ? 'bg-slate-900 text-white shadow-md shadow-slate-900/15' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-4 h-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 7h13m0 0l-3.5-3.5M17 7l-3.5 3.5M20 17H7m0 0l3.5-3.5M7 17l3.5 3.5" />
+                </svg>
+                Migración
             </button>
         </div>
 
@@ -1544,6 +1551,179 @@
         </div>
         <!-- ===================== FIN PESTAÑA CONSULTAS ===================== -->
 
+        <!-- ===================== PESTAÑA MIGRACIÓN ===================== -->
+        <div x-show="tab === 'migrate'" x-cloak class="space-y-5">
+            <section class="surface rounded-2xl p-5 sm:p-6">
+                <div class="flex items-start gap-3.5">
+                    <div class="w-11 h-11 shrink-0 rounded-xl bg-slate-900 text-white grid place-items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 7h13m0 0l-3.5-3.5M17 7l-3.5 3.5M20 17H7m0 0l3.5-3.5M7 17l3.5 3.5" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold tracking-tight text-slate-950">Migrar entre instancias</h3>
+                        <p class="mt-1 text-sm leading-6 text-slate-500">
+                            Copia esquema y datos de una instancia a otra. Origen y destino pueden estar
+                            en <strong class="font-semibold text-slate-700">proveedores distintos</strong> y usar
+                            <strong class="font-semibold text-slate-700">motores distintos</strong>: el esquema se
+                            traduce al modelo abstracto y el dialecto del destino genera su SQL nativo.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Origen y destino, lado a lado -->
+                <div class="mt-6 grid gap-4 lg:grid-cols-2">
+                    <template x-for="side in ['source', 'target']" :key="side">
+                        <div class="rounded-xl border p-4"
+                             :class="side === 'source' ? 'border-slate-200 bg-slate-50/60' : 'border-indigo-200 bg-indigo-50/40'">
+                            <div class="flex items-center gap-2 mb-3.5">
+                                <span class="h-2 w-2 rounded-full" :class="side === 'source' ? 'bg-slate-400' : 'bg-indigo-500'"></span>
+                                <h4 class="text-sm font-bold text-slate-900" x-text="side === 'source' ? 'Origen' : 'Destino'"></h4>
+                                <span class="text-[10px] text-slate-400" x-text="side === 'source' ? '(solo lectura)' : '(se escribirá aquí)'"></span>
+                            </div>
+
+                            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Proveedor</label>
+                            <select x-model="mig[side].provider" @change="loadMigInstances(side)"
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                                <option value="">— elige —</option>
+                                <template x-for="p in health.available_providers" :key="p">
+                                    <option :value="p" x-text="providerName(p)"></option>
+                                </template>
+                            </select>
+
+                            <label class="mt-3 block text-[11px] font-semibold text-slate-500 mb-1">Instancia</label>
+                            <select x-model="mig[side].instanceId" @change="onSelectMigInstance(side)"
+                                    :disabled="!mig[side].instances.length"
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-400">
+                                <option value="">
+                                    <span x-text="mig[side].loading ? 'cargando...' : '— elige —'"></span>
+                                </option>
+                                <template x-for="i in mig[side].instances" :key="i.id">
+                                    <option :value="i.id" x-text="i.name + ' (' + i.status + ')'"></option>
+                                </template>
+                            </select>
+
+                            <div class="mt-3 grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-500 mb-1">Base de datos</label>
+                                    <input x-model="mig[side].dbname" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="dbname">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-500 mb-1">Usuario</label>
+                                    <input x-model="mig[side].user" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="dbadmin">
+                                </div>
+                            </div>
+                            <label class="mt-3 block text-[11px] font-semibold text-slate-500 mb-1">Contraseña</label>
+                            <input type="password" x-model="mig[side].password" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="contraseña">
+
+                            <p class="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-500" x-show="mig[side].host">
+                                <code class="rounded bg-white px-2 py-1 ring-1 ring-slate-200" x-text="mig[side].host + ':' + mig[side].port"></code>
+                                <span class="rounded bg-white px-2 py-1 ring-1 ring-slate-200" x-text="'motor: ' + mig[side].engine"></span>
+                            </p>
+                        </div>
+                    </template>
+                </div>
+
+                <div x-show="migCrossEngine()" x-cloak class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                    Migración <strong>entre motores distintos</strong>
+                    (<span x-text="mig.source.engine"></span> → <span x-text="mig.target.engine"></span>).
+                    Los tipos se traducen a través del modelo abstracto; revisa la previsualización antes de ejecutar.
+                </div>
+
+                <div class="mt-5 flex flex-wrap items-center justify-end gap-2.5">
+                    <span x-show="mig.error" x-cloak class="mr-auto text-xs text-red-600" x-text="mig.error"></span>
+                    <button @click="previewMigration()" :disabled="mig.busy || !migSourceReady()"
+                            class="px-4 py-2.5 text-sm font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition">
+                        <span x-text="mig.busy && mig.phase === 'preview' ? 'Analizando...' : '1 · Previsualizar origen'"></span>
+                    </button>
+                    <button @click="runMigration()" :disabled="mig.busy || !mig.preview || !migTargetReady() || !migSelectedTables().length"
+                            class="px-4 py-2.5 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 rounded-xl shadow-lg shadow-slate-900/15 disabled:shadow-none transition">
+                        <span x-text="mig.busy && mig.phase === 'run' ? 'Migrando...' : '2 · Migrar'"></span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Plan -->
+            <section x-show="mig.preview" x-cloak class="surface rounded-2xl p-5 sm:p-6">
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500">Plan de migración</h3>
+                    <label class="flex items-center gap-2 text-xs text-slate-600">
+                        <input type="checkbox" x-model="mig.createTables" class="rounded border-slate-300">
+                        Crear las tablas en el destino
+                    </label>
+                </div>
+
+                <template x-if="mig.preview && !mig.preview.tables.length">
+                    <p class="text-sm text-slate-500">El origen no tiene ninguna tabla migrable.</p>
+                </template>
+
+                <div class="space-y-2.5">
+                    <template x-for="t in (mig.preview?.tables || [])" :key="t.name">
+                        <div class="rounded-xl border border-slate-200 p-3.5">
+                            <label class="flex items-center gap-2.5 cursor-pointer">
+                                <input type="checkbox" :value="t.name" x-model="mig.tables" class="rounded border-slate-300">
+                                <span class="font-semibold text-sm text-slate-900" x-text="t.name"></span>
+                                <span class="text-[11px] text-slate-400" x-text="t.columns.length + ' columna(s)'"></span>
+                            </label>
+                            <div class="mt-2.5 flex flex-wrap gap-1.5">
+                                <template x-for="c in t.columns" :key="c.name">
+                                    <span class="rounded-md bg-slate-100 px-2 py-1 text-[11px] text-slate-600">
+                                        <span class="font-medium text-slate-800" x-text="c.name"></span>
+                                        <span x-text="' · ' + c.type"></span>
+                                        <span x-show="c.primary_key" class="font-semibold text-indigo-600"> · PK</span>
+                                    </span>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <div x-show="mig.preview?.unsupported?.length" x-cloak class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                    <p class="text-xs font-semibold text-red-800">Columnas que quedan fuera (tipo sin equivalente abstracto)</p>
+                    <ul class="mt-1.5 space-y-0.5">
+                        <template x-for="u in (mig.preview?.unsupported || [])" :key="u.table + '.' + u.column">
+                            <li class="text-[11px] text-red-700">
+                                <code x-text="u.table + '.' + u.column"></code> — <span x-text="u.native_type"></span>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
+
+                <div x-show="mig.preview?.warnings?.length" x-cloak class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                    <ul class="space-y-1">
+                        <template x-for="w in (mig.preview?.warnings || [])" :key="w">
+                            <li class="text-[11px] text-amber-800" x-text="w"></li>
+                        </template>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Resultado -->
+            <section x-show="mig.report" x-cloak class="surface rounded-2xl p-5 sm:p-6">
+                <div class="flex items-center gap-2.5 mb-4">
+                    <span class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 grid place-items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-4 h-4">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                    </span>
+                    <div>
+                        <p class="text-sm font-bold text-slate-900">Migración completada</p>
+                        <p class="text-[11px] text-slate-500" x-text="(mig.report?.total_rows ?? 0) + ' fila(s) copiadas en ' + (mig.report?.tables?.length ?? 0) + ' tabla(s)'"></p>
+                    </div>
+                </div>
+                <template x-for="t in (mig.report?.tables || [])" :key="t.table">
+                    <div class="mb-2.5 rounded-xl border border-slate-200 overflow-hidden">
+                        <div class="flex items-center justify-between px-3.5 py-2 bg-slate-50">
+                            <span class="text-sm font-semibold text-slate-800" x-text="t.table"></span>
+                            <span class="text-[11px] text-slate-500" x-text="t.rows + ' fila(s)'"></span>
+                        </div>
+                        <pre class="bg-slate-950 px-3.5 py-3 text-[11px] leading-5 text-emerald-300 overflow-x-auto"><code x-text="t.sql"></code></pre>
+                    </div>
+                </template>
+            </section>
+        </div>
+        <!-- ===================== FIN PESTAÑA MIGRACIÓN ===================== -->
+
         <footer class="pt-3 pb-2 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400">
             <p>Cloud DB API · Gestión relacional agnóstica de proveedor</p>
             <div class="flex items-center gap-3">
@@ -1626,6 +1806,17 @@
                 form: emptyForm(),
 
                 tab: 'instances',
+                // Migración: origen y destino son INDEPENDIENTES del proveedor
+                // activo de la cabecera, porque el caso interesante es
+                // justamente migrar entre dos proveedores distintos.
+                mig: {
+                    source: { provider: '', instanceId: '', instances: [], loading: false,
+                              engine: 'postgres', host: '', port: 5432, dbname: '', user: '', password: '' },
+                    target: { provider: '', instanceId: '', instances: [], loading: false,
+                              engine: 'postgres', host: '', port: 5432, dbname: '', user: '', password: '' },
+                    tables: [], createTables: true,
+                    preview: null, report: null, error: '', busy: false, phase: '',
+                },
                 qmode: 'sql',  // 'sql' (consola libre) | 'ops' (operaciones agnósticas)
                 opsCopied: false,  // feedback del botón "copiar" del SQL generado
                 q: {
@@ -1763,6 +1954,140 @@
                         }
                         this.scheduleInstancePoll();
                     }, 5000);
+                },
+
+                // ---- Copia de la cabecera según la pestaña activa ----
+                hero() {
+                    if (this.tab === 'query') return {
+                        eyebrow: 'Data workspace',
+                        title: 'Consulta tus datos sin fricción.',
+                        subtitle: 'Ejecuta SQL o construye operaciones portables entre PostgreSQL y MySQL.',
+                    };
+                    if (this.tab === 'migrate') return {
+                        eyebrow: 'Portabilidad',
+                        title: 'Mueve tus datos entre proveedores.',
+                        subtitle: 'Copia esquema y filas de una instancia a otra, aunque cambien de nube y de motor.',
+                    };
+                    return {
+                        eyebrow: 'Infraestructura',
+                        title: 'Tus bases de datos, en un solo lugar.',
+                        subtitle: 'Aprovisiona y administra instancias locales o cloud desde una experiencia unificada.',
+                    };
+                },
+
+                // ---- Pestaña Migración ----
+                showMigrateTab() {
+                    if (this.tab === 'migrate') return;
+                    this.tab = 'migrate';
+                    // Precarga el proveedor activo como origen: es el arranque
+                    // más probable (migrar lo que acabas de ver en el panel).
+                    if (!this.mig.source.provider && this.health.provider) {
+                        this.mig.source.provider = this.health.provider;
+                        this.loadMigInstances('source');
+                    }
+                },
+
+                migSideReady(side) {
+                    const s = this.mig[side];
+                    return Boolean(s.host && s.dbname && s.user && s.password);
+                },
+                migSourceReady() { return this.migSideReady('source'); },
+                migTargetReady() { return this.migSideReady('target'); },
+                migCrossEngine() {
+                    return Boolean(this.mig.source.host && this.mig.target.host
+                        && this.mig.source.engine !== this.mig.target.engine);
+                },
+                migSelectedTables() { return this.mig.tables; },
+
+                async loadMigInstances(side) {
+                    const s = this.mig[side];
+                    s.instances = []; s.instanceId = ''; s.host = '';
+                    this.mig.error = '';
+                    if (!s.provider) return;
+                    s.loading = true;
+                    try {
+                        const r = await fetch('/instances?provider=' + encodeURIComponent(s.provider));
+                        const data = await r.json().catch(() => ({}));
+                        if (!r.ok) throw new Error(data.detail || ('HTTP ' + r.status));
+                        s.instances = data;
+                    } catch (e) {
+                        this.mig.error = 'No se pudieron cargar instancias: ' + e.message;
+                    } finally {
+                        s.loading = false;
+                    }
+                },
+
+                onSelectMigInstance(side) {
+                    const s = this.mig[side];
+                    const inst = s.instances.find(i => i.id === s.instanceId);
+                    if (!inst) { s.host = ''; return; }
+                    s.engine = inst.engine || 'postgres';
+                    s.host = inst.host || '';
+                    s.port = inst.port || (s.engine === 'mysql' ? 3306 : 5432);
+                    s.dbname = inst.database || inst.name;
+                    s.user = s.provider === 'gcp_cloudsql'
+                        ? (s.engine === 'mysql' ? 'root' : 'postgres')
+                        : 'dbadmin';
+                    // El plan deja de ser válido si cambia cualquiera de los extremos.
+                    this.mig.preview = null;
+                    this.mig.report = null;
+                    this.mig.tables = [];
+                },
+
+                migConnBody(side) {
+                    const s = this.mig[side];
+                    return {
+                        engine: s.engine, host: s.host, port: Number(s.port),
+                        user: s.user, password: s.password, dbname: s.dbname,
+                    };
+                },
+
+                async previewMigration() {
+                    this.mig.busy = true; this.mig.phase = 'preview';
+                    this.mig.error = ''; this.mig.report = null;
+                    try {
+                        const r = await fetch('/migrate/preview', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ source: this.migConnBody('source') }),
+                        });
+                        const data = await r.json().catch(() => ({}));
+                        if (!r.ok) throw new Error(data.detail || ('HTTP ' + r.status));
+                        this.mig.preview = data;
+                        // Por defecto se seleccionan todas: lo habitual es migrar entero.
+                        this.mig.tables = data.tables.map(t => t.name);
+                    } catch (e) {
+                        this.mig.preview = null;
+                        this.mig.error = e.message;
+                    } finally {
+                        this.mig.busy = false; this.mig.phase = '';
+                    }
+                },
+
+                async runMigration() {
+                    this.mig.busy = true; this.mig.phase = 'run';
+                    this.mig.error = ''; this.mig.report = null;
+                    try {
+                        const r = await fetch('/migrate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                source: this.migConnBody('source'),
+                                target: this.migConnBody('target'),
+                                tables: this.mig.tables,
+                                create_tables: this.mig.createTables,
+                            }),
+                        });
+                        const data = await r.json().catch(() => ({}));
+                        if (!r.ok) throw new Error(data.detail || ('HTTP ' + r.status));
+                        this.mig.report = data;
+                        this.showSuccess('Migración completada: ' + data.total_rows + ' fila(s).');
+                    } catch (e) {
+                        this.mig.error = e.message;
+                        this.showError('La migración falló: ' + e.message);
+                    } finally {
+                        this.mig.busy = false; this.mig.phase = '';
+                    }
                 },
 
                 // ---- Pestaña Consultas ----
