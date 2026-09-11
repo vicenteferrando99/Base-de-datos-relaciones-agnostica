@@ -12,8 +12,6 @@ tests/
 docs/
 scripts/
 deploy/
-.claude/
-CLAUDE.md
 README.md
 justfile
 Dockerfile
